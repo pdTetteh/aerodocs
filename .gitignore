@@ -29,6 +29,7 @@ credentials/
 data/private/
 data/generated/
 data/temporary/
+data/runtime/
 
 # Editors and operating systems
 .DS_Store

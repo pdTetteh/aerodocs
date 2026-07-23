@@ -1,5 +1,7 @@
 """Tests for application creation."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -31,3 +33,23 @@ def test_application_metadata_matches_health_response(
 
     assert response.json()["name"] == application.title
     assert response.json()["version"] == application.version
+
+
+def test_application_factories_use_isolated_storage_roots(
+    default_settings: Settings,
+    tmp_path: Path,
+) -> None:
+    from app.factory import create_app
+
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+
+    create_app(
+        default_settings.model_copy(update={"document_storage_root": first_root})
+    )
+    create_app(
+        default_settings.model_copy(update={"document_storage_root": second_root})
+    )
+
+    assert (first_root / "documents").is_dir()
+    assert (second_root / "documents").is_dir()

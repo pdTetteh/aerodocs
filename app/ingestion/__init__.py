@@ -1,1 +1,1 @@
-"""Document ingestion will be added in a future milestone."""
+"""Secure local PDF ingestion and deterministic extraction."""
