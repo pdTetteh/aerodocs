@@ -1,7 +1,7 @@
 [project]
 name = "aerodocs"
 version = "0.1.0"
-description = "Add your description here"
+description = "Safety-conscious aviation engineering documentation assistant"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -19,3 +19,21 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.15.22",
 ]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.mypy]
+files = ["app", "tests"]
+python_version = "3.11"
+strict = true
