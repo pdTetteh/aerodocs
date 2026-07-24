@@ -28,6 +28,14 @@ def test_default_settings(default_settings: Settings) -> None:
     assert default_settings.processing_format_version == "1"
     assert default_settings.chunk_max_characters == 2_000
     assert default_settings.chunk_overlap_characters == 200
+    assert default_settings.embedding_model_name.endswith("all-MiniLM-L6-v2")
+    assert default_settings.embedding_batch_size == 32
+    assert default_settings.embedding_torch_num_threads == 1
+    assert default_settings.retrieval_default_top_k == 5
+    assert default_settings.retrieval_maximum_top_k == 20
+    assert default_settings.embedding_normalization is True
+    assert default_settings.index_runtime_root == Path("data/runtime/indexes")
+    assert default_settings.maximum_chunks_per_index_build == 50_000
 
 
 def test_environment_variables_override_settings(
@@ -50,6 +58,12 @@ def test_environment_variables_override_settings(
     monkeypatch.setenv("AERODOCS_PROCESSING_FORMAT_VERSION", "process-v2")
     monkeypatch.setenv("AERODOCS_CHUNK_MAX_CHARACTERS", "800")
     monkeypatch.setenv("AERODOCS_CHUNK_OVERLAP_CHARACTERS", "80")
+    monkeypatch.setenv("AERODOCS_EMBEDDING_MODEL_NAME", "local/test-model")
+    monkeypatch.setenv("AERODOCS_EMBEDDING_BATCH_SIZE", "7")
+    monkeypatch.setenv("AERODOCS_EMBEDDING_TORCH_NUM_THREADS", "2")
+    monkeypatch.setenv("AERODOCS_RETRIEVAL_DEFAULT_TOP_K", "3")
+    monkeypatch.setenv("AERODOCS_RETRIEVAL_MAXIMUM_TOP_K", "9")
+    monkeypatch.setenv("AERODOCS_INDEX_RUNTIME_ROOT", "custom/indexes")
 
     settings = Settings()
 
@@ -68,6 +82,12 @@ def test_environment_variables_override_settings(
     assert settings.processing_format_version == "process-v2"
     assert settings.chunk_max_characters == 800
     assert settings.chunk_overlap_characters == 80
+    assert settings.embedding_model_name == "local/test-model"
+    assert settings.embedding_batch_size == 7
+    assert settings.embedding_torch_num_threads == 2
+    assert settings.retrieval_default_top_k == 3
+    assert settings.retrieval_maximum_top_k == 9
+    assert settings.index_runtime_root == Path("custom/indexes")
 
 
 def test_settings_are_immutable(default_settings: Settings) -> None:
@@ -127,6 +147,21 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "processing_format_version": "1",
         "chunk_max_characters": 2000,
         "chunk_overlap_characters": 200,
+        "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2",
+        "embedding_model_revision": None,
+        "embedding_batch_size": 32,
+        "embedding_device": "cpu",
+        "embedding_torch_num_threads": 1,
+        "retrieval_default_top_k": 5,
+        "retrieval_maximum_top_k": 20,
+        "minimum_similarity_score": 0.0,
+        "index_format_version": "1",
+        "embedding_normalization": True,
+        "index_runtime_root": "data/runtime/indexes",
+        "maximum_chunks_per_index_build": 50000,
+        "maximum_total_embedding_characters_per_build": 50000000,
+        "maximum_query_characters": 2000,
+        "index_build_lock_timeout_seconds": 30.0,
     }
 
 
@@ -147,4 +182,29 @@ def test_request_body_limit_must_exceed_pdf_limit(tmp_path: Path) -> None:
             document_storage_root=tmp_path,
             max_pdf_upload_bytes=100,
             max_request_body_bytes=100,
+        )  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"embedding_batch_size": 0},
+        {"embedding_torch_num_threads": 0},
+        {"retrieval_default_top_k": 0},
+        {"retrieval_default_top_k": 5, "retrieval_maximum_top_k": 4},
+        {"minimum_similarity_score": 2.0},
+        {"maximum_chunks_per_index_build": 0},
+        {"maximum_total_embedding_characters_per_build": 0},
+    ],
+)
+def test_invalid_retrieval_settings_are_rejected(
+    tmp_path: Path,
+    updates: dict[str, object],
+) -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            document_storage_root=tmp_path / "documents",
+            index_runtime_root=tmp_path / "indexes",
+            **updates,  # type: ignore[arg-type]
         )  # type: ignore[call-arg]

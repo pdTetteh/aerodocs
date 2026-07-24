@@ -87,6 +87,33 @@ class DocumentStore:
         self._require_directory(path)
         return path
 
+    def list_document_ids(self) -> list[str]:
+        """Return deterministic identifiers for completed document candidates."""
+        self._validate_managed_roots()
+        document_ids: list[str] = []
+        for path in self.documents_root.iterdir():
+            if path.name.startswith("."):
+                continue
+            if not DOCUMENT_ID_PATTERN.fullmatch(path.name):
+                raise StorageError
+            self._require_directory(path)
+            document_ids.append(path.name)
+        return sorted(document_ids)
+
+    def manifest_sha256(self, document_id: str) -> str:
+        """Hash a regular document manifest without exposing its location."""
+        directory = self._document_directory(document_id, require_exists=True)
+        return self._describe_regular_file(directory / "manifest.json").sha256
+
+    def iter_document_chunks(self, document_id: str) -> Iterator[ChunkRecord]:
+        """Stream chunks after callers have requested full document validation."""
+        directory = self._document_directory(document_id, require_exists=True)
+        for line in self._iter_jsonl(directory / "chunks.jsonl"):
+            try:
+                yield ChunkRecord.model_validate_json(line)
+            except ValidationError as error:
+                raise StorageError from error
+
     def write_upload(
         self,
         staging_directory: Path,

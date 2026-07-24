@@ -35,6 +35,21 @@ class Settings(BaseSettings):
     processing_format_version: str = "1"
     chunk_max_characters: int = 2_000
     chunk_overlap_characters: int = 200
+    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model_revision: str | None = None
+    embedding_batch_size: int = 32
+    embedding_device: str = "cpu"
+    embedding_torch_num_threads: int = 1
+    retrieval_default_top_k: int = 5
+    retrieval_maximum_top_k: int = 20
+    minimum_similarity_score: float = 0.0
+    index_format_version: str = "1"
+    embedding_normalization: bool = True
+    index_runtime_root: Path = Path("data/runtime/indexes")
+    maximum_chunks_per_index_build: int = 50_000
+    maximum_total_embedding_characters_per_build: int = 50_000_000
+    maximum_query_characters: int = 2_000
+    index_build_lock_timeout_seconds: float = 30.0
 
     @model_validator(mode="after")
     def validate_ingestion_limits(self) -> "Settings":
@@ -66,4 +81,38 @@ class Settings(BaseSettings):
             raise ValueError("chunking_format_version must not be empty")
         if not self.processing_format_version.strip():
             raise ValueError("processing_format_version must not be empty")
+        if not self.embedding_model_name.strip():
+            raise ValueError("embedding_model_name must not be empty")
+        if (
+            self.embedding_model_revision is not None
+            and not self.embedding_model_revision.strip()
+        ):
+            raise ValueError("embedding_model_revision must not be empty")
+        if self.embedding_batch_size <= 0:
+            raise ValueError("embedding_batch_size must be positive")
+        if not self.embedding_device.strip():
+            raise ValueError("embedding_device must not be empty")
+        if self.embedding_torch_num_threads <= 0:
+            raise ValueError("embedding_torch_num_threads must be positive")
+        if self.retrieval_default_top_k <= 0:
+            raise ValueError("retrieval_default_top_k must be positive")
+        if self.retrieval_maximum_top_k < self.retrieval_default_top_k:
+            raise ValueError(
+                "retrieval_maximum_top_k must be at least retrieval_default_top_k"
+            )
+        minimum_score = -1.0 if self.embedding_normalization else 0.0
+        if not minimum_score <= self.minimum_similarity_score <= 1.0:
+            raise ValueError("minimum_similarity_score is outside the metric range")
+        if not self.index_format_version.strip():
+            raise ValueError("index_format_version must not be empty")
+        if self.maximum_chunks_per_index_build <= 0:
+            raise ValueError("maximum_chunks_per_index_build must be positive")
+        if self.maximum_total_embedding_characters_per_build <= 0:
+            raise ValueError(
+                "maximum_total_embedding_characters_per_build must be positive"
+            )
+        if self.maximum_query_characters <= 0:
+            raise ValueError("maximum_query_characters must be positive")
+        if self.index_build_lock_timeout_seconds <= 0:
+            raise ValueError("index_build_lock_timeout_seconds must be positive")
         return self

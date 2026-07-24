@@ -5,18 +5,29 @@ import logging
 from fastapi import FastAPI
 
 from app.api.documents import create_documents_router
-from app.api.errors import document_error_handler
+from app.api.errors import document_error_handler, retrieval_error_handler
 from app.api.health import create_health_router
+from app.api.retrieval import create_retrieval_router
 from app.core.config import Settings
 from app.core.logging import configure_logging
 from app.core.request_limits import RequestBodyLimitMiddleware
 from app.ingestion.errors import DocumentError
 from app.ingestion.service import DocumentService
+from app.retrieval.embeddings import (
+    EmbeddingProvider,
+    SentenceTransformerEmbeddingProvider,
+)
+from app.retrieval.errors import RetrievalError
+from app.retrieval.service import RetrievalService
 
 LOGGER = logging.getLogger("aerodocs")
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    embedding_provider: EmbeddingProvider | None = None,
+) -> FastAPI:
     """Create and configure an AeroDocs FastAPI application."""
     resolved_settings = settings or Settings()
     configure_logging(resolved_settings.log_level)
@@ -32,7 +43,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(create_health_router(resolved_settings))
     document_service = DocumentService(resolved_settings)
     application.include_router(create_documents_router(document_service))
+    provider = embedding_provider or SentenceTransformerEmbeddingProvider(
+        resolved_settings
+    )
+    retrieval_service = RetrievalService(resolved_settings, provider)
+    application.include_router(create_retrieval_router(retrieval_service))
     application.add_exception_handler(DocumentError, document_error_handler)
+    application.add_exception_handler(RetrievalError, retrieval_error_handler)
 
     LOGGER.info("AeroDocs application created")
     return application
