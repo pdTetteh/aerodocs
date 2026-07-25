@@ -72,6 +72,29 @@ class _ProcessTorchRuntime:
 _PROCESS_TORCH_RUNTIME = _ProcessTorchRuntime()
 
 
+def configure_torch_runtime(settings: Settings) -> _TorchModule:
+    """Configure AeroDocs' process-global PyTorch CPU runtime."""
+    try:
+        torch_module = cast(_TorchModule, import_module("torch"))
+        _PROCESS_TORCH_RUNTIME.configure(
+            torch_module,
+            settings.embedding_torch_num_threads,
+        )
+    except EmbeddingModelUnavailableError:
+        raise
+    except Exception as error:
+        raise EmbeddingModelUnavailableError from error
+    return torch_module
+
+
+def initialize_torch_worker(torch_module: _TorchModule) -> None:
+    """Initialize PyTorch's CPU thread-local state for an inference worker."""
+    try:
+        torch_module.init_num_threads()
+    except Exception as error:
+        raise EmbeddingModelUnavailableError from error
+
+
 class SentenceTransformerEmbeddingProvider:
     """Load one SentenceTransformer lazily for local inference."""
 
@@ -82,17 +105,7 @@ class SentenceTransformerEmbeddingProvider:
         self._inference_lock = Lock()
 
     def _torch(self) -> _TorchModule:
-        try:
-            torch_module = cast(_TorchModule, import_module("torch"))
-            _PROCESS_TORCH_RUNTIME.configure(
-                torch_module,
-                self.settings.embedding_torch_num_threads,
-            )
-        except EmbeddingModelUnavailableError:
-            raise
-        except Exception as error:
-            raise EmbeddingModelUnavailableError from error
-        return torch_module
+        return configure_torch_runtime(self.settings)
 
     def _load(self, torch_module: _TorchModule | None = None) -> object:
         if self._model is not None:
@@ -116,9 +129,32 @@ class SentenceTransformerEmbeddingProvider:
                     revision=self.settings.embedding_model_revision,
                     device=self.settings.embedding_device,
                 )
+                self._validate_revision(self._model)
             except Exception as error:
                 raise EmbeddingModelUnavailableError from error
         return self._model
+
+    def _validate_revision(self, model: object) -> None:
+        """Reject a resolved snapshot that differs from configured identity."""
+        expected = self.settings.embedding_model_revision
+        resolved: set[str] = set()
+        tokenizer = getattr(model, "tokenizer", None)
+        tokenizer_revision = getattr(tokenizer, "init_kwargs", {}).get("_commit_hash")
+        if isinstance(tokenizer_revision, str):
+            resolved.add(tokenizer_revision)
+        try:
+            transformer = model[0]  # type: ignore[index]
+        except (IndexError, KeyError, TypeError):
+            transformer = None
+        model_revision = getattr(
+            getattr(getattr(transformer, "auto_model", None), "config", None),
+            "_commit_hash",
+            None,
+        )
+        if isinstance(model_revision, str):
+            resolved.add(model_revision)
+        if resolved and resolved != {expected}:
+            raise EmbeddingModelUnavailableError
 
     def model_identity(self) -> ModelIdentity:
         model = self._load()
@@ -148,10 +184,7 @@ class SentenceTransformerEmbeddingProvider:
     def _embed(self, texts: list[str]) -> FloatMatrix:
         with self._inference_lock:
             torch_module = self._torch()
-            try:
-                torch_module.init_num_threads()
-            except Exception as error:
-                raise EmbeddingModelUnavailableError from error
+            initialize_torch_worker(torch_module)
             model = self._load(torch_module)
             dimension = self.model_identity().dimension
             try:

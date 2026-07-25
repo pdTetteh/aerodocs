@@ -30,7 +30,7 @@ from app.retrieval.service import RetrievalService
 class FakeEmbeddingProvider:
     """Deterministic local provider that never accesses a model or network."""
 
-    def __init__(self, revision: str = "test-1") -> None:
+    def __init__(self, revision: str | None = "test-1") -> None:
         self.identity_calls = 0
         self.document_calls = 0
         self.query_calls = 0
@@ -149,6 +149,46 @@ def test_build_unchanged_search_filter_and_provenance(
     assert filtered.status_code == 200
     assert {item["document_id"] for item in filtered.json()["results"]} == {engine_id}
     assert provider.document_calls == 1
+
+
+@pytest.mark.parametrize("old_revision", [None, "a" * 40])
+def test_embedding_revision_change_requires_revision_specific_rebuild(
+    default_settings: Settings,
+    tmp_path: Path,
+    make_pdf: Callable[..., bytes],
+    old_revision: str | None,
+) -> None:
+    settings = isolated_settings(default_settings, tmp_path)
+    with TestClient(
+        create_app(settings, embedding_provider=FakeEmbeddingProvider(old_revision))
+    ) as client:
+        upload(
+            client,
+            make_pdf(["CORROSION INSPECTION\nInspect corrosion carefully."]),
+            "public.pdf",
+        )
+        old_build = client.post("/indexes/rebuild")
+        assert old_build.status_code == 201
+
+    with TestClient(
+        create_app(settings, embedding_provider=FakeEmbeddingProvider("b" * 40))
+    ) as client:
+        incompatible = client.post("/search", json={"query": "corrosion"})
+        assert incompatible.status_code == 409
+        assert incompatible.json()["error"]["code"] == "incompatible_index_profile"
+
+        new_build = client.post("/indexes/rebuild")
+        assert new_build.status_code == 201
+        assert (
+            new_build.json()["index"]["vector_profile_id"]
+            != old_build.json()["index"]["vector_profile_id"]
+        )
+        assert (
+            new_build.json()["index"]["index_profile_id"]
+            != old_build.json()["index"]["index_profile_id"]
+        )
+        assert new_build.json()["index"]["model"]["revision"] == "b" * 40
+        assert client.post("/search", json={"query": "corrosion"}).status_code == 200
 
 
 def test_empty_corpus_limits_and_index_not_ready(

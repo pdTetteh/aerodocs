@@ -45,6 +45,14 @@ class FakeModel:
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
         self.max_seq_length = 256
+        revision = str(_kwargs.get("resolved_revision", "test"))
+        self.tokenizer = SimpleNamespace(init_kwargs={"_commit_hash": revision})
+        self.auto_model = SimpleNamespace(config=SimpleNamespace(_commit_hash=revision))
+
+    def __getitem__(self, index: int) -> "FakeModel":
+        if index != 0:
+            raise IndexError(index)
+        return self
 
     def get_embedding_dimension(self) -> int:
         return 3
@@ -76,10 +84,10 @@ def provider_environment(
     construction_events: list[str] = []
 
     def constructor(*args: object, **kwargs: object) -> FakeModel:
-        del args, kwargs
-        construction_events.append("model_constructed")
+        del args
+        construction_events.append(str(kwargs["revision"]))
         fake_torch.events.append("model_constructed")
-        return FakeModel()
+        return FakeModel(resolved_revision=kwargs["revision"])
 
     modules: dict[str, object] = {
         "torch": fake_torch,
@@ -198,6 +206,46 @@ def test_new_dimension_api_is_preferred(
     )
 
     assert provider.model_identity().dimension == 3
+
+
+def test_exact_embedding_revision_is_passed_and_resolved_identity_is_verified(
+    default_settings: Settings,
+    tmp_path: Path,
+    provider_environment: tuple[FakeTorch, list[str]],
+) -> None:
+    _fake_torch, construction_events = provider_environment
+    settings = provider_settings(default_settings, tmp_path).model_copy(
+        update={"embedding_model_revision": "a" * 40}
+    )
+
+    identity = SentenceTransformerEmbeddingProvider(settings).model_identity()
+
+    assert construction_events == ["a" * 40]
+    assert identity.revision == "a" * 40
+
+
+def test_embedding_resolved_revision_mismatch_is_rejected(
+    default_settings: Settings,
+    tmp_path: Path,
+    provider_environment: tuple[FakeTorch, list[str]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_torch, _construction_events = provider_environment
+    modules: dict[str, object] = {
+        "torch": fake_torch,
+        "sentence_transformers": SimpleNamespace(
+            SentenceTransformer=lambda *_args, **_kwargs: FakeModel(
+                resolved_revision="b" * 40
+            )
+        ),
+    }
+    monkeypatch.setattr(embeddings, "import_module", lambda name: modules[name])
+    settings = provider_settings(default_settings, tmp_path).model_copy(
+        update={"embedding_model_revision": "a" * 40}
+    )
+
+    with pytest.raises(EmbeddingModelUnavailableError):
+        SentenceTransformerEmbeddingProvider(settings).model_identity()
 
 
 def test_deprecated_dimension_api_is_only_a_fallback(

@@ -5,10 +5,10 @@ It is designed to support evidence retrieval, citation-grounded question
 answering, synthetic defect workflows, and human-reviewed work-order drafting
 using public FAA and EASA material.
 
-Milestone 3 adds fully local semantic indexing, ranked evidence retrieval, and
-inspectable retrieval evaluation to the secure PDF foundation. Search returns
-source passages, not generated answers, maintenance decisions, or approval of
-maintenance or airworthiness.
+Milestone 4 adds fully local, citation-grounded claim generation to the secure
+PDF and semantic-retrieval foundation. Answers use only retrieved passages,
+preserve exact provenance, and abstain instead of making unsupported,
+conflicting, or safety-critical decisions.
 
 ## Requirements
 
@@ -175,6 +175,12 @@ Index builds are bounded by configured chunk, character, and batch limits.
 FAISS flat indexes retain every vector in memory, while the Transformer model
 and one embedding batch require additional memory. The selected model may
 truncate chunks beyond its token limit; index metadata records that limit.
+The default `sentence-transformers/all-MiniLM-L6-v2` embedding model is pinned
+to immutable revision `1110a243fdf4706b3f48f1d95db1a4f5529b4d41`.
+Changing that revision makes existing indexes incompatible and requires a
+rebuild; indexes with a legacy null revision are not silently upgraded. This
+embedding/index identity is separate from the pinned Qwen generation-provider
+identity.
 Artifacts use hashes, manifests, immutable version directories, an atomic
 active pointer, and an OS-managed build lock. Runtime index files remain under
 `data/runtime/` and are ignored by Git.
@@ -205,8 +211,103 @@ deployment. FAISS files should be rebuilt when moving between architectures.
 
 AeroDocs semantic search does not replace approved manufacturer maintenance
 documentation, applicable regulations, or qualified engineering judgment. It
-does not yet perform LLM answer generation, RAG, reranking, lexical search, or
-work-order drafting.
+does not perform reranking, lexical search, or work-order drafting.
+
+## Grounded local answers
+
+The initial development provider uses the Apache-2.0
+[`Qwen/Qwen2.5-1.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
+model at immutable revision
+`989aa7980e4cf806f80c7fef2b1adb7bc71aa306`. The model and tokenizer always use
+that same revision. It remains replaceable, can be inaccurate, and is not an
+aviation authority. The first answer request downloads it if it is not cached.
+Health checks, ingestion, search, index metadata reads, and automated tests
+neither load nor download it. Review the model card and license before
+distribution.
+
+After building an index, request a grounded answer:
+
+```shell
+curl -X POST http://127.0.0.1:8000/answers \
+  -H "content-type: application/json" \
+  -d '{"question":"How should corrosion be inspected?","top_k":5}'
+```
+
+The only optional retrieval controls are `top_k` and `document_ids`; the server
+owns the evidence threshold. The response contains structured claims,
+server-numbered citations, exact quotes, document title, filename, page range,
+section, chunk identifier, retrieval score, model identity, index identity,
+grounding results, and an audit identifier. A claim contains explicit support
+links, so distinct quotations used by two claims remain visible even when they
+share one provenance citation. The model may cite only opaque evidence IDs
+supplied for that request. AeroDocs validates every identifier, exact quote,
+polarity, modality, safety qualifier, comparator, numeric value, supported unit
+conversion, and lexical-overlap proxy before rendering `[1]`-style citations.
+A failure in any claim causes whole-answer abstention rather than a partial
+answer.
+
+Model output uses a strict discriminated JSON union: supported answer,
+insufficient-evidence abstention, or conflict. Duplicate keys, omitted required
+fields, fields from another variant, prose, Markdown fences, comments, multiple
+values, unknown fields, and non-object roots are rejected without repair or a
+second generation attempt.
+
+Retrieved documents are untrusted data. High-confidence instruction-like text
+causes the complete evidence item to be quarantined before generation, fixed
+policy instructions are kept separate from canonical JSON evidence, and
+model-provided provenance is never trusted. Screening covers bounded direct,
+indirect, role-spoofing, schema-changing, citation-bypassing, Unicode-obfuscated,
+and base64-like instruction patterns without treating ordinary maintenance
+imperatives as prompt injection. Conservative checks also abstain on narrow,
+scope-aligned evidence conflicts and requests to approve maintenance, determine
+airworthiness, or bypass required procedures. These defenses reduce risk but
+do not provide complete prompt-injection or general semantic-contradiction
+detection.
+
+Generation is bounded by question, evidence, context, exact chat-template
+prompt tokens, model context window, generated tokens, claims, support links,
+quotes, conflict identifiers, and a monotonic deadline. Configurable structured
+limits may be lowered per deployment but cannot exceed the fixed parser
+ceilings: 8 claims, 800 characters per claim, 8 supports per claim, 500
+characters per quotation, and 8 conflict evidence IDs. Values are rejected,
+never clamped or truncated. CPU inference is serialized per provider and
+shares the process-global PyTorch thread setting documented above. The total
+deadline begins before prompt preparation and includes waiting for the provider
+lock. It is checked between decoding steps; Python cannot forcefully interrupt a native
+forward pass already in progress, so a response can exceed the deadline by one
+forward pass and repeated slow native calls can consume worker capacity.
+Subprocess isolation is outside Milestone 4.
+
+Audit records are written atomically under
+`data/runtime/generation/audit/` by default. They contain hashes and selected
+identifiers plus categorical success, abstention, retrieval, model, timeout,
+resource-limit, parsing, and grounding outcomes—not questions, evidence text,
+raw prompts, raw generated output, exception messages, stack traces, cache
+locations, or filesystem paths. These local JSON records are audit-friendly
+but are not tamper-evident and retain the usual trusted-local-filesystem TOCTOU
+limitation. Required audit-write failure is fail-closed.
+
+Run deterministic generation evaluation with manually inspectable JSONL cases:
+
+```shell
+uv run python -m app.generation.evaluation \
+  --cases generation-evaluation-cases.jsonl \
+  --output data/runtime/generation/evaluations/latest.json
+```
+
+Cases manually label answer, policy abstention, evidence abstention, or
+conflict. The evaluator reports execution success, operational and malformed
+failure rates, per-class abstention precision/recall/accuracy, conflict
+precision/recall, valid-citation rate, claim citation coverage, evidence-ID
+integrity, exact-quote validity, and lexical support/unsupported proxies.
+Operational failures never count as successful abstentions. Lexical support can
+produce false positives and false negatives; it is not entailment or an
+aviation-validity judge. Evaluation uses no LLM, NLI, or embedding judge. Small
+synthetic or public-document cases do not establish broad aviation validity.
+
+Generated answers are evidence-navigation aids only. They do not approve
+maintenance, establish airworthiness, replace controlling manufacturer
+documentation or regulations, or replace qualified engineering judgment.
 
 ## Verification
 

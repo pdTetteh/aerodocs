@@ -10,6 +10,13 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.generation.limits import (
+    MAX_DRAFT_CLAIM_CHARACTERS,
+    MAX_DRAFT_CLAIMS,
+    MAX_DRAFT_CONFLICT_EVIDENCE_IDS,
+    MAX_DRAFT_QUOTE_CHARACTERS,
+    MAX_DRAFT_SUPPORTS_PER_CLAIM,
+)
 
 
 def test_default_settings(default_settings: Settings) -> None:
@@ -29,6 +36,10 @@ def test_default_settings(default_settings: Settings) -> None:
     assert default_settings.chunk_max_characters == 2_000
     assert default_settings.chunk_overlap_characters == 200
     assert default_settings.embedding_model_name.endswith("all-MiniLM-L6-v2")
+    assert (
+        default_settings.embedding_model_revision
+        == "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+    )
     assert default_settings.embedding_batch_size == 32
     assert default_settings.embedding_torch_num_threads == 1
     assert default_settings.retrieval_default_top_k == 5
@@ -36,6 +47,17 @@ def test_default_settings(default_settings: Settings) -> None:
     assert default_settings.embedding_normalization is True
     assert default_settings.index_runtime_root == Path("data/runtime/indexes")
     assert default_settings.maximum_chunks_per_index_build == 50_000
+    assert default_settings.generation_model_name.endswith("Qwen2.5-1.5B-Instruct")
+    assert (
+        default_settings.generation_model_revision
+        == "989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
+    )
+    assert default_settings.generation_device == "cpu"
+    assert default_settings.answer_default_top_k == 5
+    assert default_settings.answer_maximum_top_k == 10
+    assert default_settings.generation_audit_root == Path(
+        "data/runtime/generation/audit"
+    )
 
 
 def test_environment_variables_override_settings(
@@ -59,11 +81,16 @@ def test_environment_variables_override_settings(
     monkeypatch.setenv("AERODOCS_CHUNK_MAX_CHARACTERS", "800")
     monkeypatch.setenv("AERODOCS_CHUNK_OVERLAP_CHARACTERS", "80")
     monkeypatch.setenv("AERODOCS_EMBEDDING_MODEL_NAME", "local/test-model")
+    monkeypatch.setenv("AERODOCS_EMBEDDING_MODEL_REVISION", "a" * 40)
     monkeypatch.setenv("AERODOCS_EMBEDDING_BATCH_SIZE", "7")
     monkeypatch.setenv("AERODOCS_EMBEDDING_TORCH_NUM_THREADS", "2")
     monkeypatch.setenv("AERODOCS_RETRIEVAL_DEFAULT_TOP_K", "3")
     monkeypatch.setenv("AERODOCS_RETRIEVAL_MAXIMUM_TOP_K", "9")
     monkeypatch.setenv("AERODOCS_INDEX_RUNTIME_ROOT", "custom/indexes")
+    monkeypatch.setenv("AERODOCS_GENERATION_MODEL_NAME", "local/generator")
+    monkeypatch.setenv("AERODOCS_ANSWER_DEFAULT_TOP_K", "2")
+    monkeypatch.setenv("AERODOCS_ANSWER_MAXIMUM_TOP_K", "6")
+    monkeypatch.setenv("AERODOCS_GENERATION_AUDIT_ROOT", "custom/audits")
 
     settings = Settings()
 
@@ -83,11 +110,16 @@ def test_environment_variables_override_settings(
     assert settings.chunk_max_characters == 800
     assert settings.chunk_overlap_characters == 80
     assert settings.embedding_model_name == "local/test-model"
+    assert settings.embedding_model_revision == "a" * 40
     assert settings.embedding_batch_size == 7
     assert settings.embedding_torch_num_threads == 2
     assert settings.retrieval_default_top_k == 3
     assert settings.retrieval_maximum_top_k == 9
     assert settings.index_runtime_root == Path("custom/indexes")
+    assert settings.generation_model_name == "local/generator"
+    assert settings.answer_default_top_k == 2
+    assert settings.answer_maximum_top_k == 6
+    assert settings.generation_audit_root == Path("custom/audits")
 
 
 def test_settings_are_immutable(default_settings: Settings) -> None:
@@ -148,7 +180,7 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "chunk_max_characters": 2000,
         "chunk_overlap_characters": 200,
         "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2",
-        "embedding_model_revision": None,
+        "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
         "embedding_batch_size": 32,
         "embedding_device": "cpu",
         "embedding_torch_num_threads": 1,
@@ -162,6 +194,28 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "maximum_total_embedding_characters_per_build": 50000000,
         "maximum_query_characters": 2000,
         "index_build_lock_timeout_seconds": 30.0,
+        "generation_model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+        "generation_model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+        "generation_device": "cpu",
+        "answer_default_top_k": 5,
+        "answer_maximum_top_k": 10,
+        "answer_minimum_similarity_score": 0.35,
+        "maximum_answer_question_characters": 2000,
+        "maximum_answer_context_chunks": 8,
+        "maximum_answer_context_characters": 16000,
+        "maximum_answer_evidence_characters": 3000,
+        "maximum_generation_prompt_tokens": 4096,
+        "maximum_generation_output_tokens": 256,
+        "maximum_generation_claims": 8,
+        "maximum_generation_claim_characters": 800,
+        "maximum_generation_supports_per_claim": 8,
+        "maximum_generation_quote_characters": 500,
+        "maximum_generation_conflict_evidence_ids": 8,
+        "minimum_claim_lexical_support": 0.6,
+        "generation_timeout_seconds": 120.0,
+        "generation_format_version": "1",
+        "generation_audit_format_version": "1",
+        "generation_audit_root": "data/runtime/generation/audit",
     }
 
 
@@ -195,6 +249,19 @@ def test_request_body_limit_must_exceed_pdf_limit(tmp_path: Path) -> None:
         {"minimum_similarity_score": 2.0},
         {"maximum_chunks_per_index_build": 0},
         {"maximum_total_embedding_characters_per_build": 0},
+        {"answer_default_top_k": 0},
+        {"answer_default_top_k": 5, "answer_maximum_top_k": 4},
+        {"answer_maximum_top_k": 21},
+        {
+            "embedding_normalization": False,
+            "answer_minimum_similarity_score": -0.1,
+        },
+        {"maximum_generation_prompt_tokens": 0},
+        {"minimum_claim_lexical_support": 1.1},
+        {"generation_device": "mps"},
+        {"embedding_model_revision": ""},
+        {"embedding_model_revision": "main"},
+        {"embedding_model_revision": "g" * 40},
     ],
 )
 def test_invalid_retrieval_settings_are_rejected(
@@ -207,4 +274,93 @@ def test_invalid_retrieval_settings_are_rejected(
             document_storage_root=tmp_path / "documents",
             index_runtime_root=tmp_path / "indexes",
             **updates,  # type: ignore[arg-type]
+        )  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    "revision",
+    [
+        "",
+        " ",
+        "main",
+        "latest",
+        "refs/heads/main",
+        "v1.0",
+        "A" * 40,
+        "a" * 7,
+        "a" * 39,
+        "a" * 41,
+        "g" * 40,
+    ],
+)
+def test_generation_revision_requires_lowercase_commit_sha(
+    tmp_path: Path,
+    revision: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            document_storage_root=tmp_path,
+            generation_model_revision=revision,
+        )  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    "revision",
+    [
+        "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+        "a" * 40,
+    ],
+)
+def test_generation_revision_accepts_exact_lowercase_commit_sha(
+    tmp_path: Path,
+    revision: str,
+) -> None:
+    settings = Settings(
+        _env_file=None,
+        document_storage_root=tmp_path,
+        generation_model_revision=revision,
+    )  # type: ignore[call-arg]
+    assert settings.generation_model_revision == revision
+
+
+@pytest.mark.parametrize(
+    ("name", "ceiling"),
+    [
+        ("maximum_generation_claim_characters", MAX_DRAFT_CLAIM_CHARACTERS),
+        ("maximum_generation_claims", MAX_DRAFT_CLAIMS),
+        (
+            "maximum_generation_supports_per_claim",
+            MAX_DRAFT_SUPPORTS_PER_CLAIM,
+        ),
+        ("maximum_generation_quote_characters", MAX_DRAFT_QUOTE_CHARACTERS),
+        (
+            "maximum_generation_conflict_evidence_ids",
+            MAX_DRAFT_CONFLICT_EVIDENCE_IDS,
+        ),
+    ],
+)
+def test_structured_generation_limit_configuration_boundaries(
+    tmp_path: Path,
+    name: str,
+    ceiling: int,
+) -> None:
+    exact = Settings(
+        _env_file=None,
+        document_storage_root=tmp_path,
+        **{name: ceiling},  # type: ignore[arg-type]
+    )  # type: ignore[call-arg]
+    lower = Settings(
+        _env_file=None,
+        document_storage_root=tmp_path,
+        **{name: max(1, ceiling - 1)},  # type: ignore[arg-type]
+    )  # type: ignore[call-arg]
+    assert getattr(exact, name) == ceiling
+    assert getattr(lower, name) == max(1, ceiling - 1)
+
+    with pytest.raises(ValidationError, match=name):
+        Settings(
+            _env_file=None,
+            document_storage_root=tmp_path,
+            **{name: ceiling + 1},  # type: ignore[arg-type]
         )  # type: ignore[call-arg]

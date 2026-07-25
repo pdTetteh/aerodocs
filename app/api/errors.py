@@ -4,6 +4,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.generation.errors import GenerationError
 from app.ingestion.errors import DocumentError
 from app.retrieval.errors import RetrievalError
 
@@ -48,6 +49,23 @@ async def retrieval_error_handler(
 ) -> JSONResponse:
     """Map expected retrieval failures without leaking internal details."""
     if not isinstance(exception, RetrievalError):
+        raise exception
+    response = ErrorResponse(
+        error=ErrorDetail(code=exception.code, message=exception.public_message),
+        details=getattr(exception, "public_details", None),
+    )
+    return JSONResponse(
+        status_code=exception.status_code,
+        content=response.model_dump(mode="json", exclude_none=True),
+    )
+
+
+async def generation_error_handler(
+    _request: Request,
+    exception: Exception,
+) -> JSONResponse:
+    """Map expected generation failures without leaking internal details."""
+    if not isinstance(exception, GenerationError):
         raise exception
     response = ErrorResponse(
         error=ErrorDetail(code=exception.code, message=exception.public_message),
