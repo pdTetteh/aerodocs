@@ -17,6 +17,7 @@ from app.generation.limits import (
     MAX_DRAFT_QUOTE_CHARACTERS,
     MAX_DRAFT_SUPPORTS_PER_CLAIM,
 )
+from app.mcp_server.results import MINIMUM_SAFE_TOOL_RESULT_CHARACTERS
 
 
 def test_default_settings(default_settings: Settings) -> None:
@@ -53,6 +54,12 @@ def test_default_settings(default_settings: Settings) -> None:
         == "989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
     )
     assert default_settings.generation_device == "cpu"
+    assert default_settings.mcp_server_name == "AeroDocs"
+    assert default_settings.mcp_server_version == "0.1.0"
+    assert default_settings.mcp_transport == "stdio"
+    assert default_settings.mcp_default_pagination_limit == 20
+    assert default_settings.mcp_maximum_pagination_limit == 100
+    assert default_settings.mcp_maximum_tool_result_characters == 131_072
     assert default_settings.answer_default_top_k == 5
     assert default_settings.answer_maximum_top_k == 10
     assert default_settings.generation_audit_root == Path(
@@ -91,6 +98,11 @@ def test_environment_variables_override_settings(
     monkeypatch.setenv("AERODOCS_ANSWER_DEFAULT_TOP_K", "2")
     monkeypatch.setenv("AERODOCS_ANSWER_MAXIMUM_TOP_K", "6")
     monkeypatch.setenv("AERODOCS_GENERATION_AUDIT_ROOT", "custom/audits")
+    monkeypatch.setenv("AERODOCS_MCP_SERVER_NAME", "AeroDocs Test MCP")
+    monkeypatch.setenv("AERODOCS_MCP_SERVER_VERSION", "9.8.7")
+    monkeypatch.setenv("AERODOCS_MCP_DEFAULT_PAGINATION_LIMIT", "4")
+    monkeypatch.setenv("AERODOCS_MCP_MAXIMUM_PAGINATION_LIMIT", "12")
+    monkeypatch.setenv("AERODOCS_MCP_MAXIMUM_TOOL_RESULT_CHARACTERS", "2048")
 
     settings = Settings()
 
@@ -120,6 +132,11 @@ def test_environment_variables_override_settings(
     assert settings.answer_default_top_k == 2
     assert settings.answer_maximum_top_k == 6
     assert settings.generation_audit_root == Path("custom/audits")
+    assert settings.mcp_server_name == "AeroDocs Test MCP"
+    assert settings.mcp_server_version == "9.8.7"
+    assert settings.mcp_default_pagination_limit == 4
+    assert settings.mcp_maximum_pagination_limit == 12
+    assert settings.mcp_maximum_tool_result_characters == 2048
 
 
 def test_settings_are_immutable(default_settings: Settings) -> None:
@@ -216,6 +233,12 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "generation_format_version": "1",
         "generation_audit_format_version": "1",
         "generation_audit_root": "data/runtime/generation/audit",
+        "mcp_server_name": "AeroDocs",
+        "mcp_server_version": "0.1.0",
+        "mcp_transport": "stdio",
+        "mcp_default_pagination_limit": 20,
+        "mcp_maximum_pagination_limit": 100,
+        "mcp_maximum_tool_result_characters": 131072,
     }
 
 
@@ -262,6 +285,14 @@ def test_request_body_limit_must_exceed_pdf_limit(tmp_path: Path) -> None:
         {"embedding_model_revision": ""},
         {"embedding_model_revision": "main"},
         {"embedding_model_revision": "g" * 40},
+        {"mcp_server_name": " "},
+        {"mcp_server_version": ""},
+        {"mcp_default_pagination_limit": 0},
+        {
+            "mcp_default_pagination_limit": 5,
+            "mcp_maximum_pagination_limit": 4,
+        },
+        {"mcp_maximum_tool_result_characters": 0},
     ],
 )
 def test_invalid_retrieval_settings_are_rejected(
@@ -275,6 +306,32 @@ def test_invalid_retrieval_settings_are_rejected(
             index_runtime_root=tmp_path / "indexes",
             **updates,  # type: ignore[arg-type]
         )  # type: ignore[call-arg]
+
+
+def test_mcp_minimum_safe_result_limit(tmp_path: Path) -> None:
+    accepted = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        document_storage_root=tmp_path / "documents",
+        index_runtime_root=tmp_path / "indexes",
+        mcp_maximum_tool_result_characters=MINIMUM_SAFE_TOOL_RESULT_CHARACTERS,
+    )
+    assert (
+        accepted.mcp_maximum_tool_result_characters
+        == MINIMUM_SAFE_TOOL_RESULT_CHARACTERS
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="mcp_maximum_tool_result_characters must be at least",
+    ):
+        Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            document_storage_root=tmp_path / "documents-below",
+            index_runtime_root=tmp_path / "indexes-below",
+            mcp_maximum_tool_result_characters=(
+                MINIMUM_SAFE_TOOL_RESULT_CHARACTERS - 1
+            ),
+        )
 
 
 @pytest.mark.parametrize(

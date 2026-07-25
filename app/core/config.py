@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     generation_format_version: str = "1"
     generation_audit_format_version: str = "1"
     generation_audit_root: Path = Path("data/runtime/generation/audit")
+    mcp_server_name: str = "AeroDocs"
+    mcp_server_version: str = "0.1.0"
+    mcp_transport: Literal["stdio"] = "stdio"
+    mcp_default_pagination_limit: int = 20
+    mcp_maximum_pagination_limit: int = 100
+    mcp_maximum_tool_result_characters: int = 131_072
 
     @model_validator(mode="after")
     def validate_ingestion_limits(self) -> "Settings":
@@ -229,4 +235,28 @@ class Settings(BaseSettings):
             raise ValueError("generation_format_version must not be empty")
         if not self.generation_audit_format_version.strip():
             raise ValueError("generation_audit_format_version must not be empty")
+        if not self.mcp_server_name.strip():
+            raise ValueError("mcp_server_name must not be empty")
+        if not self.mcp_server_version.strip():
+            raise ValueError("mcp_server_version must not be empty")
+        if self.mcp_transport != "stdio":
+            raise ValueError("mcp_transport must be stdio")
+        if self.mcp_default_pagination_limit <= 0:
+            raise ValueError("mcp_default_pagination_limit must be positive")
+        if self.mcp_maximum_pagination_limit < self.mcp_default_pagination_limit:
+            raise ValueError(
+                "mcp_maximum_pagination_limit must be at least "
+                "mcp_default_pagination_limit"
+            )
+        minimum = self._minimum_safe_mcp_tool_result_characters()
+        if self.mcp_maximum_tool_result_characters < minimum:
+            raise ValueError(
+                f"mcp_maximum_tool_result_characters must be at least {minimum}"
+            )
         return self
+
+    @staticmethod
+    def _minimum_safe_mcp_tool_result_characters() -> int:
+        from app.mcp_server.results import MINIMUM_SAFE_TOOL_RESULT_CHARACTERS
+
+        return MINIMUM_SAFE_TOOL_RESULT_CHARACTERS

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.core.config import Settings
+from app.core.identifiers import DOCUMENT_ID_PATTERN
 from app.generation.audit import GenerationAuditStore
 from app.generation.context import (
     ContextAssembly,
@@ -39,7 +40,6 @@ from app.generation.models import (
 )
 from app.generation.parsing import parse_generation_draft
 from app.generation.provider import LlmProvider
-from app.ingestion.storage import DOCUMENT_ID_PATTERN
 from app.retrieval.errors import RetrievalError, StaleIndexError
 from app.retrieval.models import SearchRequest, SearchResponse
 from app.retrieval.service import RetrievalService

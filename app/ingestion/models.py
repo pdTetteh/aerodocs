@@ -98,6 +98,27 @@ class DocumentIngestResponse(BaseModel):
     duplicate: bool
 
 
+class DocumentSummary(BaseModel):
+    """Bounded safe metadata for document discovery."""
+
+    document_id: DocumentId
+    filename: str
+    title: str
+    page_count: int = Field(ge=1)
+    chunk_count: int = Field(ge=0)
+    processing_profile: ProcessingProfile
+    ingested_at: datetime
+
+
+class DocumentListResponse(BaseModel):
+    """Deterministically ordered public document summaries."""
+
+    offset: int = Field(ge=0)
+    limit: int = Field(ge=1)
+    total: int = Field(ge=0)
+    documents: list[DocumentSummary]
+
+
 class PageListResponse(BaseModel):
     """Deterministically ordered page records."""
 

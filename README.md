@@ -5,10 +5,10 @@ It is designed to support evidence retrieval, citation-grounded question
 answering, synthetic defect workflows, and human-reviewed work-order drafting
 using public FAA and EASA material.
 
-Milestone 4 adds fully local, citation-grounded claim generation to the secure
-PDF and semantic-retrieval foundation. Answers use only retrieved passages,
-preserve exact provenance, and abstain instead of making unsupported,
-conflicting, or safety-critical decisions.
+Milestone 5 adds a secure, local stdio Model Context Protocol adapter to the
+PDF, semantic-retrieval, and citation-grounded answer foundation. It exposes
+only bounded document metadata, ranked evidence, and existing grounded answers
+without adding write or maintenance-approval capabilities.
 
 ## Requirements
 
@@ -308,6 +308,95 @@ synthetic or public-document cases do not establish broad aviation validity.
 Generated answers are evidence-navigation aids only. They do not approve
 maintenance, establish airworthiness, replace controlling manufacturer
 documentation or regulations, or replace qualified engineering judgment.
+
+## Model Context Protocol
+
+Milestone 5 exposes the existing document, retrieval, and grounded-answer
+services through the official Python MCP SDK over local stdio:
+
+```shell
+uv run python -m app.mcp_server
+```
+
+The server opens no network listener. A generic MCP client can launch it with a
+configuration equivalent to:
+
+```json
+{
+  "mcpServers": {
+    "aerodocs": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "app.mcp_server"],
+      "cwd": "/absolute/path/to/aerodocs"
+    }
+  }
+}
+```
+
+The exact tool allowlist is:
+
+- `list_documents` — bounded validated document summaries.
+- `get_document_metadata` — safe public metadata for one document.
+- `get_active_index` — validated active-index metadata without loading models.
+- `search_evidence` — ranked exact passages and provenance, not an answer.
+- `answer_from_documents` — the existing grounded answer or abstention.
+
+The first four tools are read-only and idempotent. `answer_from_documents` is
+non-destructive but is not annotated read-only or idempotent: each call reruns
+generation when required and successful calls, abstentions, and feasible
+failures may persist a distinct sanitized audit record. No MCP upload, index
+rebuild, deletion, editing, sampling, shell, filesystem, administrative,
+maintenance-approval, or airworthiness-certification tool exists.
+
+Two static metadata resources are available at `aerodocs://status` and
+`aerodocs://index`. The
+`aerodocs://documents/{document_id}/metadata` resource template accepts only a
+complete canonical opaque document ID. Resources never expose PDFs, extracted
+text, manifests, runtime paths, or arbitrary file URIs.
+
+Example tool arguments:
+
+```json
+{"query":"How should corrosion be inspected?","top_k":5}
+```
+
+```json
+{
+  "question": "How should corrosion be inspected?",
+  "top_k": 5,
+  "document_ids": ["doc_<sha256>"]
+}
+```
+
+Search passages and ingested document content remain untrusted data. The answer
+tool delegates to the same safety classification, evidence threshold,
+injection quarantine, conflict handling, strict parsing, grounding, exact
+quotation, server-controlled citation, timeout, and audit code used by the HTTP
+API. An abstention remains an abstention; MCP does not make AeroDocs autonomous.
+
+Stdio stdout is reserved for MCP protocol frames. AeroDocs and SDK logs,
+warnings, and model diagnostics use stderr, and supported Hugging Face progress
+displays are disabled. Model loading remains lazy; metadata-only calls load
+neither pinned model. Search and answer may download their exact pinned
+snapshots on first use if they are not cached.
+
+MCP cancellation stops awaiting and prevents a late protocol response, but it
+cannot forcibly interrupt a worker thread or native PyTorch forward pass
+already in progress. The generation provider retains its total lock-wait and
+inference deadline; subprocess inference and remote MCP transports are outside
+this milestone.
+
+MCP tool results are bounded by
+`AERODOCS_MCP_MAXIMUM_TOOL_RESULT_CHARACTERS` and fail instead of truncating
+evidence or provenance. The limit counts Unicode code points in the complete
+`CallToolResult` JSON produced by the MCP SDK with aliases and omitted null
+fields, including text content, structured content, error state, and escaping.
+The minimum safe value is 162 characters so the bounded
+`mcp_result_too_large` error always fits. Pagination uses the configured MCP
+default and maximum.
+AeroDocs remains an informational documentation assistant and cannot approve
+maintenance, determine airworthiness, authorize return to service, or replace
+approved documentation and qualified judgment.
 
 ## Verification
 

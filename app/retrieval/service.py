@@ -9,9 +9,10 @@ from typing import Literal, TextIO
 import faiss
 
 from app.core.config import Settings
+from app.core.identifiers import DOCUMENT_ID_PATTERN
 from app.ingestion.errors import StorageError
 from app.ingestion.models import ChunkRecord
-from app.ingestion.storage import DOCUMENT_ID_PATTERN, DocumentStore
+from app.ingestion.storage import DocumentStore
 from app.retrieval.embeddings import (
     EmbeddingProvider,
     normalize_matrix,
@@ -186,6 +187,29 @@ class RetrievalService:
     def active_metadata(self) -> IndexMetadata:
         """Return fully validated public active-index metadata."""
         manifest, _index = self.indexes.active()
+        return IndexMetadata.model_validate(manifest.model_dump())
+
+    def active_metadata_without_models(self) -> IndexMetadata:
+        """Return validated current metadata without loading models or vectors."""
+        manifest = self.indexes.active_manifest()
+        sources = self._discover_sources()
+        if corpus_fingerprint(sources) != manifest.corpus_fingerprint:
+            raise StaleIndexError
+        expected_index_type = (
+            "IndexFlatIP" if self.settings.embedding_normalization else "IndexFlatL2"
+        )
+        expected_metric = (
+            "cosine" if self.settings.embedding_normalization else "inverse_squared_l2"
+        )
+        if (
+            manifest.index_format_version != self.settings.index_format_version
+            or manifest.model.name != self.settings.embedding_model_name
+            or manifest.model.revision != self.settings.embedding_model_revision
+            or manifest.embedding_normalization != self.settings.embedding_normalization
+            or manifest.index_type != expected_index_type
+            or manifest.similarity_metric != expected_metric
+        ):
+            raise IncompatibleIndexProfileError
         return IndexMetadata.model_validate(manifest.model_dump())
 
     def search(self, request: SearchRequest) -> SearchResponse:

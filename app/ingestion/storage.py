@@ -4,7 +4,6 @@ import errno
 import hashlib
 import json
 import os
-import re
 import shutil
 import stat
 import time
@@ -17,6 +16,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
+from app.core.identifiers import DOCUMENT_ID_PATTERN
 from app.ingestion.errors import (
     DocumentNotFoundError,
     EmptyUploadError,
@@ -34,7 +34,6 @@ from app.ingestion.models import (
 )
 from app.ingestion.profile import calculate_processing_profile_id
 
-DOCUMENT_ID_PATTERN = re.compile(r"^doc_[0-9a-f]{64}$")
 READ_BLOCK_SIZE = 1024 * 1024
 REQUIRED_ARTIFACTS = (
     "source.pdf",

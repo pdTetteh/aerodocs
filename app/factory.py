@@ -17,16 +17,11 @@ from app.core.config import Settings
 from app.core.logging import configure_logging
 from app.core.request_limits import RequestBodyLimitMiddleware
 from app.generation.errors import GenerationError
-from app.generation.provider import LlmProvider, TransformersLlmProvider
-from app.generation.service import AnswerService
+from app.generation.provider import LlmProvider
 from app.ingestion.errors import DocumentError
-from app.ingestion.service import DocumentService
-from app.retrieval.embeddings import (
-    EmbeddingProvider,
-    SentenceTransformerEmbeddingProvider,
-)
+from app.retrieval.embeddings import EmbeddingProvider
 from app.retrieval.errors import RetrievalError
-from app.retrieval.service import RetrievalService
+from app.services.runtime import create_services
 
 LOGGER = logging.getLogger("aerodocs")
 
@@ -50,20 +45,14 @@ def create_app(
         maximum_bytes=resolved_settings.max_request_body_bytes,
     )
     application.include_router(create_health_router(resolved_settings))
-    document_service = DocumentService(resolved_settings)
-    application.include_router(create_documents_router(document_service))
-    provider = embedding_provider or SentenceTransformerEmbeddingProvider(
-        resolved_settings
-    )
-    retrieval_service = RetrievalService(resolved_settings, provider)
-    application.include_router(create_retrieval_router(retrieval_service))
-    generator = llm_provider or TransformersLlmProvider(resolved_settings)
-    answer_service = AnswerService(
+    services = create_services(
         resolved_settings,
-        retrieval_service,
-        generator,
+        embedding_provider=embedding_provider,
+        llm_provider=llm_provider,
     )
-    application.include_router(create_generation_router(answer_service))
+    application.include_router(create_documents_router(services.documents))
+    application.include_router(create_retrieval_router(services.retrieval))
+    application.include_router(create_generation_router(services.answers))
     application.add_exception_handler(DocumentError, document_error_handler)
     application.add_exception_handler(RetrievalError, retrieval_error_handler)
     application.add_exception_handler(GenerationError, generation_error_handler)

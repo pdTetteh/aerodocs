@@ -21,9 +21,12 @@ from app.ingestion.errors import (
 from app.ingestion.models import (
     ChunkListResponse,
     DocumentIngestResponse,
+    DocumentListResponse,
     DocumentManifest,
     DocumentMetadata,
+    DocumentSummary,
     PageListResponse,
+    ProcessingProfile,
 )
 from app.ingestion.pdf import extract_pdf
 from app.ingestion.profile import create_processing_profile
@@ -154,6 +157,53 @@ class DocumentService:
                 "Unexpected document metadata read failure",
                 extra={"document_id": document_id},
             )
+            raise InternalDocumentError from error
+
+    def list_documents(self, *, offset: int, limit: int) -> DocumentListResponse:
+        """Return a bounded deterministic list of validated document summaries."""
+        try:
+            document_ids = self.store.list_document_ids()
+            summaries: list[DocumentSummary] = []
+            for index, document_id in enumerate(document_ids):
+                validated = self.store.validate_document(document_id)
+                if offset <= index < offset + limit:
+                    metadata = validated.metadata
+                    summaries.append(
+                        DocumentSummary(
+                            document_id=document_id,
+                            filename=metadata.filename,
+                            title=metadata.title,
+                            page_count=validated.manifest.page_count,
+                            chunk_count=validated.manifest.chunk_count,
+                            processing_profile=ProcessingProfile(
+                                processing_profile_id=(metadata.processing_profile_id),
+                                processing_format_version=(
+                                    metadata.processing_format_version
+                                ),
+                                extraction_format_version=(
+                                    metadata.extraction_format_version
+                                ),
+                                chunking_format_version=(
+                                    metadata.chunking_format_version
+                                ),
+                                chunk_max_characters=(metadata.chunk_max_characters),
+                                chunk_overlap_characters=(
+                                    metadata.chunk_overlap_characters
+                                ),
+                            ),
+                            ingested_at=metadata.ingested_at,
+                        )
+                    )
+            return DocumentListResponse(
+                offset=offset,
+                limit=limit,
+                total=len(document_ids),
+                documents=summaries,
+            )
+        except DocumentError:
+            raise
+        except Exception as error:
+            LOGGER.exception("Unexpected document list failure")
             raise InternalDocumentError from error
 
     def pages(

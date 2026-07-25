@@ -246,6 +246,22 @@ class IndexStore:
         shutil.rmtree(directory)
 
     def active(self) -> tuple[IndexManifest, faiss.Index]:
+        pointer, directory = self._active_pointer()
+        manifest, index = self.validate_directory(
+            directory,
+            expected_version=pointer.version_id,
+        )
+        return manifest, index
+
+    def active_manifest(self) -> IndexManifest:
+        """Validate active metadata and records without deserializing FAISS."""
+        pointer, directory = self._active_pointer()
+        return self.validate_directory_metadata(
+            directory,
+            expected_version=pointer.version_id,
+        )
+
+    def _active_pointer(self) -> tuple[ActivePointer, Path]:
         if _lstat(self.active_path) is None:
             raise IndexNotReadyError
         pointer = cast(ActivePointer, self._read_model(self.active_path, ActivePointer))
@@ -255,11 +271,7 @@ class IndexStore:
             != pointer.manifest_sha256
         ):
             raise IndexIntegrityError
-        manifest, index = self.validate_directory(
-            directory,
-            expected_version=pointer.version_id,
-        )
-        return manifest, index
+        return pointer, directory
 
     def validate_directory(
         self,
@@ -267,6 +279,38 @@ class IndexStore:
         *,
         expected_version: str,
     ) -> tuple[IndexManifest, faiss.Index]:
+        manifest = self.validate_directory_metadata(
+            directory,
+            expected_version=expected_version,
+        )
+        try:
+            index = faiss.read_index(str(directory / "index.faiss"))
+        except Exception as error:
+            raise IndexIntegrityError from error
+        if (
+            index.ntotal != manifest.vector_count
+            or index.d != manifest.model.dimension
+            or not index.is_trained
+        ):
+            raise IndexIntegrityError
+        if index.__class__.__name__ != manifest.index_type:
+            raise IndexIntegrityError
+        expected_metric = (
+            faiss.METRIC_INNER_PRODUCT
+            if manifest.index_type == "IndexFlatIP"
+            else faiss.METRIC_L2
+        )
+        if index.metric_type != expected_metric:
+            raise IndexIntegrityError
+        return manifest, index
+
+    def validate_directory_metadata(
+        self,
+        directory: Path,
+        *,
+        expected_version: str,
+    ) -> IndexManifest:
+        """Validate stored metadata and records without loading vector data."""
         self._require_directory(directory)
         manifest = cast(
             IndexManifest,
@@ -330,26 +374,7 @@ class IndexStore:
             != sorted(manifest.zero_chunk_document_ids)
         ):
             raise IndexIntegrityError
-        try:
-            index = faiss.read_index(str(directory / "index.faiss"))
-        except Exception as error:
-            raise IndexIntegrityError from error
-        if (
-            index.ntotal != manifest.vector_count
-            or index.d != manifest.model.dimension
-            or not index.is_trained
-        ):
-            raise IndexIntegrityError
-        if index.__class__.__name__ != manifest.index_type:
-            raise IndexIntegrityError
-        expected_metric = (
-            faiss.METRIC_INNER_PRODUCT
-            if manifest.index_type == "IndexFlatIP"
-            else faiss.METRIC_L2
-        )
-        if index.metric_type != expected_metric:
-            raise IndexIntegrityError
-        return manifest, index
+        return manifest
 
     def iter_records(self, directory: Path) -> Iterator[IndexRecord]:
         path = directory / "records.jsonl"
