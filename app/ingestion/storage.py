@@ -74,6 +74,29 @@ class DocumentStore:
         self._ensure_managed_directory(self.documents_root)
         self._ensure_managed_directory(self.staging_root)
 
+    @classmethod
+    def open_existing(cls, root: Path) -> "DocumentStore":
+        """Open an initialized document store without creating any path."""
+        configured_root = root.expanduser().absolute()
+        status = _lstat(configured_root)
+        if (
+            status is None
+            or stat.S_ISLNK(status.st_mode)
+            or not stat.S_ISDIR(status.st_mode)
+        ):
+            raise StorageError
+        try:
+            resolved = configured_root.resolve(strict=True)
+        except OSError as error:
+            raise StorageError from error
+        store = object.__new__(cls)
+        store.configured_root = configured_root
+        store.root = resolved
+        store.documents_root = resolved / "documents"
+        store.staging_root = resolved / ".staging"
+        store._validate_managed_roots()
+        return store
+
     def create_staging_directory(self) -> Path:
         """Create a unique private staging directory."""
         self._validate_managed_roots()

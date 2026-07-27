@@ -50,8 +50,14 @@ class _DeadlineStoppingCriteria:
 class TransformersLlmProvider:
     """Load one pinned Hugging Face model lazily for serialized CPU inference."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        local_files_only: bool = False,
+    ) -> None:
         self.settings = settings
+        self.local_files_only = local_files_only
         self._tokenizer: object | None = None
         self._model: object | None = None
         self._load_lock = Lock()
@@ -77,10 +83,12 @@ class TransformersLlmProvider:
                 tokenizer = transformers.AutoTokenizer.from_pretrained(
                     self.settings.generation_model_name,
                     revision=self.settings.generation_model_revision,
+                    local_files_only=self.local_files_only,
                 )
                 model = transformers.AutoModelForCausalLM.from_pretrained(
                     self.settings.generation_model_name,
                     revision=self.settings.generation_model_revision,
+                    local_files_only=self.local_files_only,
                 )
                 self._validate_revision(tokenizer, model)
                 model.to(self.settings.generation_device)

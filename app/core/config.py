@@ -16,6 +16,10 @@ from app.generation.limits import (
 )
 
 LogLevel = Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
+PINNED_EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+PINNED_EMBEDDING_MODEL_REVISION = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+PINNED_GENERATION_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+PINNED_GENERATION_MODEL_REVISION = "989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
 
 
 class Settings(BaseSettings):
@@ -44,8 +48,8 @@ class Settings(BaseSettings):
     processing_format_version: str = "1"
     chunk_max_characters: int = 2_000
     chunk_overlap_characters: int = 200
-    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
-    embedding_model_revision: str = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+    embedding_model_name: str = PINNED_EMBEDDING_MODEL_NAME
+    embedding_model_revision: str = PINNED_EMBEDDING_MODEL_REVISION
     embedding_batch_size: int = 32
     embedding_device: str = "cpu"
     embedding_torch_num_threads: int = 1
@@ -59,8 +63,8 @@ class Settings(BaseSettings):
     maximum_total_embedding_characters_per_build: int = 50_000_000
     maximum_query_characters: int = 2_000
     index_build_lock_timeout_seconds: float = 30.0
-    generation_model_name: str = "Qwen/Qwen2.5-1.5B-Instruct"
-    generation_model_revision: str = "989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
+    generation_model_name: str = PINNED_GENERATION_MODEL_NAME
+    generation_model_revision: str = PINNED_GENERATION_MODEL_REVISION
     generation_device: str = "cpu"
     answer_default_top_k: int = 5
     answer_maximum_top_k: int = 10

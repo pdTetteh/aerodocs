@@ -3,7 +3,7 @@
 import logging
 import re
 import unicodedata
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import BinaryIO
 
 from app.core.config import Settings
@@ -44,13 +44,41 @@ class DocumentService:
         self.processing_profile = create_processing_profile(settings)
         self.store = DocumentStore(settings.document_storage_root)
 
+    @classmethod
+    def open_existing(cls, settings: Settings) -> "DocumentService":
+        """Open production documents read-only without initializing storage."""
+        service = object.__new__(cls)
+        service.settings = settings
+        service.processing_profile = create_processing_profile(settings)
+        service.store = DocumentStore.open_existing(settings.document_storage_root)
+        return service
+
     def ingest(
         self,
         stream: BinaryIO,
         filename: str | None,
         media_type: str | None,
+        *,
+        ingested_at: datetime | None = None,
     ) -> DocumentIngestResponse:
         """Validate, extract, chunk, and atomically persist one PDF."""
+        if ingested_at is None:
+            effective_ingested_at = datetime.now(UTC)
+        else:
+            try:
+                offset = (
+                    ingested_at.utcoffset()
+                    if isinstance(ingested_at, datetime)
+                    and ingested_at.tzinfo is not None
+                    else None
+                )
+            except (OverflowError, ValueError) as error:
+                raise ValueError(
+                    "ingested_at must be a timezone-aware UTC datetime"
+                ) from error
+            if offset is None or offset != timedelta(0):
+                raise ValueError("ingested_at must be a timezone-aware UTC datetime")
+            effective_ingested_at = ingested_at.astimezone(UTC)
         sanitized_filename = sanitize_filename(filename)
         if media_type != self.settings.allowed_pdf_media_type:
             raise UnsupportedMediaTypeError
@@ -102,7 +130,7 @@ class DocumentService:
                 extracted_character_count=sum(
                     page.character_count for page in extraction.pages
                 ),
-                ingested_at=datetime.now(UTC),
+                ingested_at=effective_ingested_at,
                 extraction_format_version=(
                     self.processing_profile.extraction_format_version
                 ),

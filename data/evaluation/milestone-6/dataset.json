@@ -1,0 +1,28 @@
+{
+  "cases_file": "cases.jsonl",
+  "dataset_id": "milestone-6",
+  "dataset_version": "1",
+  "evaluation_profile_id": "eval_m6_offline_v1",
+  "schema_version": "1",
+  "sources": [
+    {
+      "allowed_corpus_fingerprint": null,
+      "chunking_profile_id": null,
+      "document_id": "doc_ccba8296b3ddc18fa25186eeed4e21408a295846169ecae4c3e514e6967054a6",
+      "file": null,
+      "kind": "synthetic",
+      "manifest_fingerprint": null,
+      "processing_profile_id": null,
+      "provenance_notes": "Benchmark-authored synthetic content.",
+      "publisher": "AeroDocs benchmark authors",
+      "redistribution_permitted": true,
+      "reuse_status": "benchmark_authored",
+      "source_fingerprint": "ccba8296b3ddc18fa25186eeed4e21408a295846169ecae4c3e514e6967054a6",
+      "source_id": "src_fastener_inspection",
+      "source_url": null,
+      "specification": "sources/fastener-inspection.json",
+      "title": "Synthetic Fastener Inspection Manual"
+    }
+  ],
+  "thresholds_file": "thresholds.json"
+}

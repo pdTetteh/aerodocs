@@ -64,6 +64,23 @@ class RetrievalService:
             settings.index_build_lock_timeout_seconds,
         )
 
+    @classmethod
+    def open_existing(
+        cls,
+        settings: Settings,
+        provider: EmbeddingProvider,
+    ) -> "RetrievalService":
+        """Open an existing corpus and index without initializing storage."""
+        service = object.__new__(cls)
+        service.settings = settings
+        service.provider = provider
+        service.documents = DocumentStore.open_existing(settings.document_storage_root)
+        service.indexes = IndexStore.open_existing(
+            settings.index_runtime_root,
+            settings.index_build_lock_timeout_seconds,
+        )
+        return service
+
     def rebuild(self) -> IndexBuildResponse:
         """Build or reuse the deterministic active corpus index."""
         with self.indexes.build_lock():

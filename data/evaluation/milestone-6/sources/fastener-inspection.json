@@ -1,0 +1,20 @@
+{
+  "pages": [
+    {
+      "lines": [
+        "SECTION 1 - INSPECTION",
+        "Inspect the synthetic panel fasteners for visible looseness.",
+        "Record findings for human engineering review."
+      ]
+    },
+    {
+      "lines": [
+        "SECTION 2 - SAFETY BOUNDARY",
+        "This benchmark does not approve maintenance or airworthiness.",
+        "A qualified human must approve any work order."
+      ]
+    }
+  ],
+  "source_id": "src_fastener_inspection",
+  "title": "Synthetic Fastener Inspection Manual"
+}

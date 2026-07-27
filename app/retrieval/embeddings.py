@@ -98,8 +98,14 @@ def initialize_torch_worker(torch_module: _TorchModule) -> None:
 class SentenceTransformerEmbeddingProvider:
     """Load one SentenceTransformer lazily for local inference."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        local_files_only: bool = False,
+    ) -> None:
         self.settings = settings
+        self.local_files_only = local_files_only
         self._model: object | None = None
         self._model_lock = Lock()
         self._inference_lock = Lock()
@@ -128,6 +134,7 @@ class SentenceTransformerEmbeddingProvider:
                     self.settings.embedding_model_name,
                     revision=self.settings.embedding_model_revision,
                     device=self.settings.embedding_device,
+                    local_files_only=self.local_files_only,
                 )
                 self._validate_revision(self._model)
             except Exception as error:

@@ -55,6 +55,31 @@ class IndexStore:
         for path in (self.staging_root, self.versions_root, self.locks_root):
             self._ensure_directory(path)
 
+    @classmethod
+    def open_existing(cls, root: Path, lock_timeout: float) -> "IndexStore":
+        """Open an initialized index store without creating any path."""
+        configured = root.expanduser().absolute()
+        status = _lstat(configured)
+        if (
+            status is None
+            or stat.S_ISLNK(status.st_mode)
+            or not stat.S_ISDIR(status.st_mode)
+        ):
+            raise IndexIntegrityError
+        try:
+            resolved = configured.resolve(strict=True)
+        except OSError as error:
+            raise IndexIntegrityError from error
+        store = object.__new__(cls)
+        store.root = resolved
+        store.staging_root = resolved / ".staging"
+        store.versions_root = resolved / "versions"
+        store.locks_root = resolved / ".locks"
+        store.active_path = resolved / "active.json"
+        store.lock_timeout = lock_timeout
+        store._validate_roots()
+        return store
+
     @contextmanager
     def build_lock(self) -> Iterator[None]:
         """Acquire an OS-owned lock that is released when the process exits."""

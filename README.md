@@ -398,6 +398,91 @@ AeroDocs remains an informational documentation assistant and cannot approve
 maintenance, determine airworthiness, authorize return to service, or replace
 approved documentation and qualified judgment.
 
+## Evaluation benchmark
+
+The tracked Milestone 6 bundle at `data/evaluation/milestone-6/` contains only
+benchmark-authored synthetic source specifications, strict JSONL cases, and
+deterministic thresholds. Source URLs in manifests are provenance metadata and
+are never fetched. Generated PDFs, ingested documents, indexes, reports, model
+caches, audits, and other evaluation runtime artifacts must remain under
+ignored runtime roots and must not be committed.
+
+Offline evaluation must use deterministic fake providers and the network-denial
+guard. Real-provider evaluation is cache-only by default and can enable model
+downloads only for AeroDocs' configured pinned MiniLM and Qwen identities.
+Reports deliberately omit questions, prompts, answers, evidence text, provider
+output, paths, host/user details, environment values, and secrets. Reproduction
+requires the matching versioned dataset bundle.
+
+Evaluation output is advisory engineering evidence. It does not approve
+maintenance, airworthiness, or return to service, and optional human-review
+ratings cannot change deterministic regression gates.
+
+The canonical Phase 1 evaluation commands are:
+
+```shell
+uv run python -m app.evaluation validate --dataset milestone-6
+uv run python -m app.evaluation run \
+  --suite complete \
+  --dataset milestone-6 \
+  --mode offline \
+  --report-id local-run
+uv run python -m app.evaluation compare \
+  --baseline local-run \
+  --candidate candidate-run \
+  --report-id local-comparison
+```
+
+Dataset, threshold, and report arguments are bounded identifiers, not paths.
+Offline runs use isolated runtime roots, deterministic fake providers, and
+process-local network denial. Real runs retain the exact production MiniLM and
+Qwen model names and immutable revisions, and are cache-only unless
+`--allow-model-downloads` is supplied.
+
+When `--thresholds` is omitted, `run` automatically loads the selected
+dataset's contained `thresholds_file`, if declared. An explicit
+`--thresholds SAFE_THRESHOLD_ID` replaces that dataset default. Datasets with
+no declared default run with mandatory hard invariants only. In every case,
+the unrelaxable `unsafe_answer_count <= 0` invariant remains active for answer,
+safety, and complete suites. Invalid, missing, unsafe, or incompatible
+threshold configuration exits with code 2 before evaluation where detectable;
+a valid policy whose gates fail still publishes complete reports and exits
+with code 4.
+
+Each threshold gate declares a non-empty closed `suites` scope. The complete
+multi-suite threshold set is validated when loaded, then only gates explicitly
+scoped to the selected suite are evaluated. Gates for other suites are recorded
+as out of scope rather than passed, failed, missing, or ineligible. For example:
+
+```json
+{
+  "population": "retrieval_quality",
+  "metric_id": "recall_at_5",
+  "operator": "greater_than_or_equal",
+  "value": 0.8,
+  "suites": ["retrieval", "complete"]
+}
+```
+
+Retrieval and performance runs may therefore select zero optional gates from a
+valid bundled policy without being rejected. Reports still identify the loaded
+threshold set and record declared, selected, mandatory, and out-of-scope gate
+counts.
+
+The `performance` and `complete` suites share one performance-case selector and
+warm-repetition plan. Each case contributes one quality observation; additional
+repetitions are timing-only service executions and do not duplicate quality
+denominators. Answer timing repetitions still use `AnswerService` normally and
+therefore create separate evaluation-root audit records, while reports retain
+only the primary case audit ID and never copy audit payloads.
+
+Phase 1 accepts either bundled synthetic/redistributable sources, which are
+processed only in isolated evaluation roots, or manifest-only sources, which
+are validated read-only against the configured production corpus. A bundle
+that mixes manifest-only and bundled sources fails closed with
+`mixed_source_modes_unsupported`; isolated composite-corpus import is not
+implemented in Phase 1.
+
 ## Verification
 
 ```shell
