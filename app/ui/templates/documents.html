@@ -1,0 +1,22 @@
+{% extends "base.html" %} {% block title %}Documents · {{ ui_title }}{% endblock
+%} {% block content %}
+<header class="page-header">
+  <p class="eyebrow">Read-only library</p>
+  <h1>Documents</h1>
+  <p>
+    Browse validated document metadata available to AeroDocs.
+  </p>
+</header>
+<div id="document-status" class="status-line" aria-live="polite"></div>
+<div id="document-list" aria-busy="true"></div>
+<nav class="pagination" aria-label="Document pages">
+  <button id="documents-previous" type="button" disabled>Previous</button>
+  <span id="documents-page" aria-live="polite"></span>
+  <button id="documents-next" type="button" disabled>Next</button>
+</nav>
+<section id="document-metadata" aria-labelledby="metadata-heading" hidden>
+  <h2 id="metadata-heading" tabindex="-1">Document metadata</h2>
+  <button id="metadata-close" type="button" class="secondary">Close metadata</button>
+  <div id="metadata-content"></div>
+</section>
+{% endblock %}

@@ -417,7 +417,7 @@ class AnswerService:
                         not quote
                         or len(quote)
                         > self.settings.maximum_generation_quote_characters
-                        or _normalize_space(quote) not in _normalize_space(passage.text)
+                        or not quote_matches_evidence(quote, passage.text)
                     ):
                         raise GenerationOutputInvalidError
                     relevant_text.append(quote)
@@ -795,6 +795,12 @@ def _citation(number: int, passage: EvidencePassage) -> Citation:
 
 def _normalize_space(text: str) -> str:
     return " ".join(text.split())
+
+
+def quote_matches_evidence(quote: str, evidence: str) -> bool:
+    """Apply the production grounding whitespace-containment rule."""
+    normalized_quote = _normalize_space(quote)
+    return bool(normalized_quote) and normalized_quote in _normalize_space(evidence)
 
 
 def _lexical_support(claim: str, evidence: str) -> float:

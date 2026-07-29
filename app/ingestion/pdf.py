@@ -14,6 +14,10 @@ from app.ingestion.errors import (
 )
 from app.ingestion.models import ExtractionWarning, PageRecord
 
+MAXIMUM_DOCUMENT_TITLE_CHARACTERS = 300
+MAXIMUM_DOCUMENT_AUTHOR_CHARACTERS = 300
+MAXIMUM_DOCUMENT_SUBJECT_CHARACTERS = 1_000
+
 
 @dataclass(frozen=True)
 class PdfExtraction:
@@ -73,9 +77,18 @@ def extract_pdf(
             )
 
         return PdfExtraction(
-            title=normalize_metadata_field(metadata.get("title"), 300),
-            author=normalize_metadata_field(metadata.get("author"), 300),
-            subject=normalize_metadata_field(metadata.get("subject"), 1_000),
+            title=normalize_metadata_field(
+                metadata.get("title"),
+                MAXIMUM_DOCUMENT_TITLE_CHARACTERS,
+            ),
+            author=normalize_metadata_field(
+                metadata.get("author"),
+                MAXIMUM_DOCUMENT_AUTHOR_CHARACTERS,
+            ),
+            subject=normalize_metadata_field(
+                metadata.get("subject"),
+                MAXIMUM_DOCUMENT_SUBJECT_CHARACTERS,
+            ),
             pages=pages,
         )
     except (EncryptedPdfError, PdfExpansionLimitError, ZeroPagePdfError):

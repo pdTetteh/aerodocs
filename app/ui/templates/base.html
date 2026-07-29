@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}{{ ui_title }}{% endblock %}</title>
+    <link rel="stylesheet" href="/ui/assets/app.css" />
+    <script type="module" src="/ui/assets/app.js"></script>
+  </head>
+  <body data-page="{{ page }}">
+    <div
+      id="ui-config"
+      hidden
+      data-document-page-size="{{ ui_config.document_page_size }}"
+      data-document-page-maximum="{{ ui_config.document_page_maximum }}"
+      data-query-characters="{{ ui_config.query_characters }}"
+      data-retrieval-top-k-default="{{ ui_config.retrieval_top_k_default }}"
+      data-retrieval-top-k-maximum="{{ ui_config.retrieval_top_k_maximum }}"
+      data-question-characters="{{ ui_config.question_characters }}"
+      data-answer-top-k-default="{{ ui_config.answer_top_k_default }}"
+      data-answer-top-k-maximum="{{ ui_config.answer_top_k_maximum }}"
+      data-document-id-characters="{{ ui_config.document_id_characters }}"
+      data-chunk-id-characters="{{ ui_config.chunk_id_characters }}"
+      data-evidence-id-characters="{{ ui_config.evidence_id_characters }}"
+      data-claim-id-characters="{{ ui_config.claim_id_characters }}"
+      data-filename-characters="{{ ui_config.filename_characters }}"
+      data-title-characters="{{ ui_config.title_characters }}"
+      data-subject-characters="{{ ui_config.subject_characters }}"
+      data-section-characters="{{ ui_config.section_characters }}"
+      data-chunk-characters="{{ ui_config.chunk_characters }}"
+      data-answer-evidence-count="{{ ui_config.answer_evidence_count }}"
+      data-answer-evidence-characters="{{ ui_config.answer_evidence_characters }}"
+      data-claim-count="{{ ui_config.claim_count }}"
+      data-claim-characters="{{ ui_config.claim_characters }}"
+      data-supports-per-claim="{{ ui_config.supports_per_claim }}"
+      data-quote-characters="{{ ui_config.quote_characters }}"
+      data-conflict-evidence-count="{{ ui_config.conflict_evidence_count }}"
+      data-search-available="{{ 'true' if ui_config.search_available else 'false' }}"
+      data-answer-available="{{ 'true' if ui_config.answer_available else 'false' }}"
+      data-response-health="{{ ui_config.response_bytes.health }}"
+      data-response-documents="{{ ui_config.response_bytes.documents }}"
+      data-response-metadata="{{ ui_config.response_bytes.metadata }}"
+      data-response-index="{{ ui_config.response_bytes.index }}"
+      data-response-search="{{ ui_config.response_bytes.search }}"
+      data-response-answer="{{ ui_config.response_bytes.answer }}"
+      data-response-error="{{ ui_config.response_bytes.error }}"
+    ></div>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <header class="site-header">
+      <div>
+        <p class="product-name">{{ app_name }}</p>
+        <p class="product-version">Version {{ app_version }}</p>
+      </div>
+      <nav aria-label="Primary">
+        <a href="/ui/"{% if page == "home" %} aria-current="page"{% endif %}>Status</a>
+        <a href="/ui/documents"{% if page == "documents" %} aria-current="page"{% endif %}>Documents</a>
+        <a href="/ui/search"{% if page == "search" %} aria-current="page"{% endif %}>Search</a>
+        <a href="/ui/ask"{% if page == "ask" %} aria-current="page"{% endif %}>Ask</a>
+      </nav>
+    </header>
+    <aside class="safety-boundary" aria-label="Safety boundary">
+      AeroDocs provides document-grounded informational assistance. It does not
+      approve maintenance, certify airworthiness or authorise return to service.
+    </aside>
+    <main id="main-content" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+    <div id="global-status" class="visually-hidden" aria-live="polite"></div>
+  </body>
+</html>

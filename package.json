@@ -1,0 +1,24 @@
+{
+  "name": "aerodocs-ui-development",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <26"
+  },
+  "scripts": {
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm test && npm run verify:assets",
+    "format:check": "prettier --check \"app/ui/**/*.{html,css,js}\" \"tests/ui/**/*.js\" \"scripts/*.mjs\" \"*.{json,js}\"",
+    "lint": "eslint app/ui/static/app.js tests/ui scripts",
+    "test": "vitest run --environment jsdom",
+    "typecheck": "tsc --noEmit",
+    "verify:assets": "node scripts/verify-ui-assets.mjs"
+  },
+  "devDependencies": {
+    "eslint": "10.8.0",
+    "jsdom": "29.1.1",
+    "prettier": "3.9.6",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

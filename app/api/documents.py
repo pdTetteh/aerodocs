@@ -6,9 +6,14 @@ from fastapi import APIRouter, File, Query, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.api.errors import ErrorResponse
+from app.ingestion.limits import (
+    DEFAULT_DOCUMENT_LIST_LIMIT,
+    MAXIMUM_DOCUMENT_LIST_LIMIT,
+)
 from app.ingestion.models import (
     ChunkListResponse,
     DocumentIngestResponse,
+    DocumentListResponse,
     DocumentMetadata,
     PageListResponse,
 )
@@ -55,6 +60,24 @@ def create_documents_router(service: DocumentService) -> APIRouter:
         )
         response.status_code = 200 if result.duplicate else 201
         return result
+
+    @router.get(
+        "",
+        response_model=DocumentListResponse,
+        responses={500: READ_ERROR_RESPONSES[500]},
+    )
+    async def list_documents(
+        offset: Annotated[int, Query(ge=0)] = 0,
+        limit: Annotated[
+            int,
+            Query(ge=1, le=MAXIMUM_DOCUMENT_LIST_LIMIT),
+        ] = DEFAULT_DOCUMENT_LIST_LIMIT,
+    ) -> DocumentListResponse:
+        return await run_in_threadpool(
+            service.list_documents,
+            offset=offset,
+            limit=limit,
+        )
 
     @router.get(
         "/{document_id}",

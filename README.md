@@ -483,6 +483,79 @@ that mixes manifest-only and bundled sources fails closed with
 `mixed_source_modes_unsupported`; isolated composite-corpus import is not
 implemented in Phase 1.
 
+## Read-only evidence-review interface
+
+Milestone 7 adds a lightweight server-rendered interface at:
+
+- `http://127.0.0.1:8000/ui/` — health and active-index readiness;
+- `/ui/documents` — bounded validated document metadata;
+- `/ui/search` — ranked exact evidence and provenance;
+- `/ui/ask` — grounded claims, support quotations, citations, abstentions, and
+  conflicts.
+
+Start it with the existing application command:
+
+```shell
+uv run uvicorn app.main:app --reload
+```
+
+The interface is read-only with respect to source documents and indexes. It
+does not expose ingestion, deletion, index rebuilding, model selection,
+storage controls, MCP, or audit records. Documents and indexes remain managed
+through the existing operator/API workflows. Answer requests use the existing
+`AnswerService` and may still create sanitized backend audit records.
+
+Search passages are labelled as untrusted document evidence. Supported answers
+are rendered claim by claim using the backend's support links, quotations,
+citation numbers, and evidence provenance. The browser validates those
+relationships before presentation and fails closed rather than repairing,
+renumbering, or inventing a citation. Supporting quotations use the same
+canonical whitespace-containment rule as production grounding. Conflict
+responses show only evidence
+explicitly identified by the backend's conflict citations and never choose an
+authoritative source.
+
+Insufficient evidence, safety boundaries, prompt-injection risk, grounding
+validation, and conflicting evidence are distinct abstention states.
+Operational model, timeout, index, integrity, connectivity, and audit failures
+are not presented as abstentions or supported answers. There is no bypass or
+automatic question rewrite.
+
+The UI uses an autoescaped Jinja2 shell, same-origin vanilla JavaScript, a
+restrictive UI-only Content Security Policy, and safe DOM text operations.
+Questions, answers, evidence, PDFs, and audit data are never placed in URLs,
+browser storage, offline caches, or console output. Cancelling an answer stops
+the browser from awaiting it; native inference may continue and an audit may
+still be created.
+
+Keyboard-accessible native controls, visible focus, live status regions,
+citation-to-evidence navigation, sufficient non-colour state labels,
+responsive layouts, and reduced-motion support are built in. The interface
+remains an informational evidence-review aid: it does not approve maintenance,
+certify airworthiness, authorize return to service, or replace qualified
+engineering review.
+
+UI configuration is limited to:
+
+- `AERODOCS_UI_ENABLED`;
+- `AERODOCS_UI_TITLE`;
+- `AERODOCS_UI_DEFAULT_PAGE_SIZE`;
+- `AERODOCS_UI_MAXIMUM_PAGE_SIZE`.
+
+Backend retrieval, answer, model, safety, and resource limits remain
+authoritative and are not duplicated as UI configuration.
+
+The runtime UI uses Jinja2 and unbundled static assets. Development verification
+uses a locked Node-only toolchain; it produces no browser runtime bundle:
+
+```shell
+npm ci
+npm run check
+```
+
+`npm run check` performs JavaScript linting, formatting, JSDoc type checking,
+jsdom interaction/security tests, and packaged-static-asset verification.
+
 ## Verification
 
 ```shell

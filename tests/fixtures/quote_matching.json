@@ -1,0 +1,86 @@
+[
+  {
+    "id": "literal",
+    "quote": "Inspect the pump.",
+    "evidence": "Inspect the pump.",
+    "expected": true
+  },
+  {
+    "id": "repeated_spaces",
+    "quote": "Inspect the pump.",
+    "evidence": "Inspect   the   pump.",
+    "expected": true
+  },
+  {
+    "id": "tabs_and_spaces",
+    "quote": "Inspect the pump.",
+    "evidence": "Inspect\tthe pump.",
+    "expected": true
+  },
+  {
+    "id": "crlf_and_lf",
+    "quote": "Inspect the pump.",
+    "evidence": "Inspect\r\n\n the pump.",
+    "expected": true
+  },
+  {
+    "id": "leading_trailing",
+    "quote": "  Inspect the pump.  ",
+    "evidence": "Before: Inspect the pump. After.",
+    "expected": true
+  },
+  {
+    "id": "non_breaking_space",
+    "quote": "Inspect the pump.",
+    "evidence": "Inspect\u00a0the pump.",
+    "expected": true
+  },
+  {
+    "id": "unicode_em_space",
+    "quote": "Inspect the pump.",
+    "evidence": "Inspect\u2003the pump.",
+    "expected": true
+  },
+  {
+    "id": "case_change",
+    "quote": "inspect the pump.",
+    "evidence": "Inspect the pump.",
+    "expected": false
+  },
+  {
+    "id": "punctuation_change",
+    "quote": "Inspect the pump",
+    "evidence": "Inspect, the pump.",
+    "expected": false
+  },
+  {
+    "id": "missing_word",
+    "quote": "Inspect pump.",
+    "evidence": "Inspect the pump.",
+    "expected": false
+  },
+  {
+    "id": "reordered_words",
+    "quote": "pump the Inspect.",
+    "evidence": "Inspect the pump.",
+    "expected": false
+  },
+  {
+    "id": "empty",
+    "quote": "",
+    "evidence": "Inspect the pump.",
+    "expected": false
+  },
+  {
+    "id": "whitespace_only",
+    "quote": " \t\n ",
+    "evidence": "Inspect the pump.",
+    "expected": false
+  },
+  {
+    "id": "near_match",
+    "quote": "Inspect the pumps.",
+    "evidence": "Inspect the pump.",
+    "expected": false
+  }
+]

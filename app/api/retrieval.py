@@ -42,7 +42,7 @@ def create_retrieval_router(service: RetrievalService) -> APIRouter:
         responses=RETRIEVAL_ERRORS,
     )
     async def active_index() -> IndexMetadata:
-        return await run_in_threadpool(service.active_metadata)
+        return await run_in_threadpool(service.active_metadata_without_models)
 
     @router.post(
         "/search",

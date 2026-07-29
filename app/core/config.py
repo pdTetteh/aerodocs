@@ -14,6 +14,7 @@ from app.generation.limits import (
     MAX_DRAFT_QUOTE_CHARACTERS,
     MAX_DRAFT_SUPPORTS_PER_CLAIM,
 )
+from app.ingestion.limits import MAXIMUM_DOCUMENT_LIST_LIMIT
 
 LogLevel = Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 PINNED_EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
@@ -85,6 +86,10 @@ class Settings(BaseSettings):
     generation_format_version: str = "1"
     generation_audit_format_version: str = "1"
     generation_audit_root: Path = Path("data/runtime/generation/audit")
+    ui_enabled: bool = True
+    ui_title: str = "AeroDocs Evidence Review"
+    ui_default_page_size: int = 20
+    ui_maximum_page_size: int = 100
     mcp_server_name: str = "AeroDocs"
     mcp_server_version: str = "0.1.0"
     mcp_transport: Literal["stdio"] = "stdio"
@@ -239,6 +244,14 @@ class Settings(BaseSettings):
             raise ValueError("generation_format_version must not be empty")
         if not self.generation_audit_format_version.strip():
             raise ValueError("generation_audit_format_version must not be empty")
+        if not 1 <= len(self.ui_title.strip()) <= 80:
+            raise ValueError("ui_title must contain between 1 and 80 characters")
+        if not 1 <= self.ui_default_page_size <= self.ui_maximum_page_size:
+            raise ValueError(
+                "ui_default_page_size must be between 1 and ui_maximum_page_size"
+            )
+        if not 1 <= self.ui_maximum_page_size <= MAXIMUM_DOCUMENT_LIST_LIMIT:
+            raise ValueError("ui_maximum_page_size exceeds the document-list limit")
         if not self.mcp_server_name.strip():
             raise ValueError("mcp_server_name must not be empty")
         if not self.mcp_server_version.strip():

@@ -62,6 +62,25 @@ class IndexMetadata(BaseModel):
     built_at: datetime
 
 
+class ActiveIndexStatus(BaseModel):
+    """Compact bounded projection used by the read-only browser status page."""
+
+    status: Literal["ready"]
+    index_profile_id: str
+    corpus_fingerprint: str
+    index_format_version: str
+    embedding_model_name: str
+    embedding_model_revision: str | None
+    vector_count: int = Field(ge=1)
+    indexed_chunk_count: int = Field(ge=1)
+    indexed_character_count: int = Field(ge=1)
+    document_count: int = Field(ge=1)
+    zero_chunk_document_count: int = Field(ge=0)
+    similarity_metric: Literal["cosine", "inverse_squared_l2"]
+    index_type: Literal["IndexFlatIP", "IndexFlatL2"]
+    built_at: datetime
+
+
 class IndexManifest(IndexMetadata):
     manifest_format_version: Literal["1"]
     version_id: str

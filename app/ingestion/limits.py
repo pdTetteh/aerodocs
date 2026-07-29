@@ -1,0 +1,5 @@
+"""Shared bounded limits for public document discovery."""
+
+DEFAULT_DOCUMENT_LIST_LIMIT = 20
+MAXIMUM_DOCUMENT_LIST_LIMIT = 100
+MAXIMUM_SANITIZED_FILENAME_CHARACTERS = 200

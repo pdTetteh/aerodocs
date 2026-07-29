@@ -1,0 +1,45 @@
+{% extends "base.html" %} {% block title %}Grounded answer · {{ ui_title }}{%
+endblock %} {% block content %}
+<header class="page-header">
+  <p class="eyebrow">Citation-grounded review</p>
+  <h1>Ask AeroDocs</h1>
+  <p>
+    Answers remain informational and require review against approved
+    documentation.
+  </p>
+</header>
+<form id="answer-form" novalidate>
+  <label for="answer-question">Question</label>
+  <textarea
+    id="answer-question"
+    name="question"
+    required
+    maxlength="{{ ui_config.question_characters }}"
+  ></textarea>
+  <label for="answer-top-k">Maximum evidence passages</label>
+  <input
+    id="answer-top-k"
+    name="top_k"
+    type="number"
+    min="1"
+    max="{{ ui_config.answer_top_k_maximum }}"
+    value="{{ ui_config.answer_top_k_default }}"
+    required
+  />
+  <fieldset>
+    <legend>Document filters <span class="optional">(optional)</span></legend>
+    <div id="answer-documents">Loading documents…</div>
+  </fieldset>
+  <button id="answer-submit" type="submit">Request grounded answer</button>
+  <button id="answer-cancel" type="button" hidden>Cancel</button>
+</form>
+<p class="cancellation-note">
+  Cancelling stops this browser from waiting. Backend model work may continue
+  and a sanitized audit may still be created.
+</p>
+<div id="answer-status" class="status-line" aria-live="polite"></div>
+<section id="answer-output" aria-labelledby="answer-results-heading" hidden>
+  <h2 id="answer-results-heading" tabindex="-1">Answer review</h2>
+  <div id="answer-results"></div>
+</section>
+{% endblock %}

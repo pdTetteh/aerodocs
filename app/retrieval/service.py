@@ -15,6 +15,7 @@ from app.ingestion.models import ChunkRecord
 from app.ingestion.storage import DocumentStore
 from app.retrieval.embeddings import (
     EmbeddingProvider,
+    SentenceTransformerEmbeddingProvider,
     normalize_matrix,
     validate_matrix,
 )
@@ -30,6 +31,7 @@ from app.retrieval.errors import (
     StaleIndexError,
 )
 from app.retrieval.models import (
+    ActiveIndexStatus,
     IndexBuildResponse,
     IndexMetadata,
     IndexRecord,
@@ -218,16 +220,56 @@ class RetrievalService:
         expected_metric = (
             "cosine" if self.settings.embedding_normalization else "inverse_squared_l2"
         )
+        configured_provider = isinstance(
+            self.provider,
+            SentenceTransformerEmbeddingProvider,
+        )
         if (
             manifest.index_format_version != self.settings.index_format_version
-            or manifest.model.name != self.settings.embedding_model_name
-            or manifest.model.revision != self.settings.embedding_model_revision
+            or (
+                configured_provider
+                and (
+                    manifest.model.name != self.settings.embedding_model_name
+                    or manifest.model.revision != self.settings.embedding_model_revision
+                )
+            )
             or manifest.embedding_normalization != self.settings.embedding_normalization
             or manifest.index_type != expected_index_type
             or manifest.similarity_metric != expected_metric
         ):
             raise IncompatibleIndexProfileError
         return IndexMetadata.model_validate(manifest.model_dump())
+
+    def active_index_status(self) -> ActiveIndexStatus:
+        """Return a compact active-index projection without models or vectors."""
+        metadata = self.active_metadata_without_models()
+        zero_chunk_document_count = len(metadata.zero_chunk_document_ids)
+        source_ids = {source.document_id for source in metadata.sources}
+        zero_chunk_ids = set(metadata.zero_chunk_document_ids)
+        if (
+            metadata.vector_count != metadata.indexed_chunk_count
+            or metadata.source_document_count != len(metadata.sources)
+            or len(source_ids) != metadata.source_document_count
+            or len(zero_chunk_ids) != zero_chunk_document_count
+            or not zero_chunk_ids.issubset(source_ids)
+        ):
+            raise IndexIntegrityError
+        return ActiveIndexStatus(
+            status="ready",
+            index_profile_id=metadata.index_profile_id,
+            corpus_fingerprint=metadata.corpus_fingerprint,
+            index_format_version=metadata.index_format_version,
+            embedding_model_name=metadata.model.name,
+            embedding_model_revision=metadata.model.revision,
+            vector_count=metadata.vector_count,
+            indexed_chunk_count=metadata.indexed_chunk_count,
+            indexed_character_count=metadata.indexed_character_count,
+            document_count=metadata.source_document_count,
+            zero_chunk_document_count=zero_chunk_document_count,
+            similarity_metric=metadata.similarity_metric,
+            index_type=metadata.index_type,
+            built_at=metadata.built_at,
+        )
 
     def search(self, request: SearchRequest) -> SearchResponse:
         """Return deterministic ranked evidence passages without generation."""

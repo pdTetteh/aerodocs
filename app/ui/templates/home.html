@@ -1,0 +1,23 @@
+{% extends "base.html" %} {% block title %}Status · {{ ui_title }}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <p class="eyebrow">Read-only evidence review</p>
+  <h1>System status</h1>
+  <p>
+    Review indexed source evidence and grounded answers without changing
+    documents or indexes.
+  </p>
+</header>
+<section aria-labelledby="health-heading">
+  <h2 id="health-heading">Application</h2>
+  <div id="health-summary" class="status-card" aria-busy="true">
+    Checking health…
+  </div>
+</section>
+<section aria-labelledby="index-heading">
+  <h2 id="index-heading">Active index</h2>
+  <div id="index-summary" class="status-card" aria-busy="true">
+    Checking index readiness…
+  </div>
+</section>
+{% endblock %}

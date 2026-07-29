@@ -65,6 +65,10 @@ def test_default_settings(default_settings: Settings) -> None:
     assert default_settings.generation_audit_root == Path(
         "data/runtime/generation/audit"
     )
+    assert default_settings.ui_enabled is True
+    assert default_settings.ui_title == "AeroDocs Evidence Review"
+    assert default_settings.ui_default_page_size == 20
+    assert default_settings.ui_maximum_page_size == 100
 
 
 def test_environment_variables_override_settings(
@@ -98,6 +102,10 @@ def test_environment_variables_override_settings(
     monkeypatch.setenv("AERODOCS_ANSWER_DEFAULT_TOP_K", "2")
     monkeypatch.setenv("AERODOCS_ANSWER_MAXIMUM_TOP_K", "6")
     monkeypatch.setenv("AERODOCS_GENERATION_AUDIT_ROOT", "custom/audits")
+    monkeypatch.setenv("AERODOCS_UI_ENABLED", "false")
+    monkeypatch.setenv("AERODOCS_UI_TITLE", "Evidence Desk")
+    monkeypatch.setenv("AERODOCS_UI_DEFAULT_PAGE_SIZE", "7")
+    monkeypatch.setenv("AERODOCS_UI_MAXIMUM_PAGE_SIZE", "30")
     monkeypatch.setenv("AERODOCS_MCP_SERVER_NAME", "AeroDocs Test MCP")
     monkeypatch.setenv("AERODOCS_MCP_SERVER_VERSION", "9.8.7")
     monkeypatch.setenv("AERODOCS_MCP_DEFAULT_PAGINATION_LIMIT", "4")
@@ -132,6 +140,10 @@ def test_environment_variables_override_settings(
     assert settings.answer_default_top_k == 2
     assert settings.answer_maximum_top_k == 6
     assert settings.generation_audit_root == Path("custom/audits")
+    assert settings.ui_enabled is False
+    assert settings.ui_title == "Evidence Desk"
+    assert settings.ui_default_page_size == 7
+    assert settings.ui_maximum_page_size == 30
     assert settings.mcp_server_name == "AeroDocs Test MCP"
     assert settings.mcp_server_version == "9.8.7"
     assert settings.mcp_default_pagination_limit == 4
@@ -233,6 +245,10 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "generation_format_version": "1",
         "generation_audit_format_version": "1",
         "generation_audit_root": "data/runtime/generation/audit",
+        "ui_enabled": True,
+        "ui_title": "AeroDocs Evidence Review",
+        "ui_default_page_size": 20,
+        "ui_maximum_page_size": 100,
         "mcp_server_name": "AeroDocs",
         "mcp_server_version": "0.1.0",
         "mcp_transport": "stdio",
@@ -293,6 +309,10 @@ def test_request_body_limit_must_exceed_pdf_limit(tmp_path: Path) -> None:
             "mcp_maximum_pagination_limit": 4,
         },
         {"mcp_maximum_tool_result_characters": 0},
+        {"ui_title": " "},
+        {"ui_default_page_size": 0},
+        {"ui_default_page_size": 10, "ui_maximum_page_size": 9},
+        {"ui_maximum_page_size": 101},
     ],
 )
 def test_invalid_retrieval_settings_are_rejected(

@@ -18,6 +18,7 @@ from app.ingestion.errors import (
     StorageError,
     UnsupportedMediaTypeError,
 )
+from app.ingestion.limits import MAXIMUM_SANITIZED_FILENAME_CHARACTERS
 from app.ingestion.models import (
     ChunkListResponse,
     DocumentIngestResponse,
@@ -192,36 +193,33 @@ class DocumentService:
         try:
             document_ids = self.store.list_document_ids()
             summaries: list[DocumentSummary] = []
-            for index, document_id in enumerate(document_ids):
+            for document_id in document_ids[offset : offset + limit]:
                 validated = self.store.validate_document(document_id)
-                if offset <= index < offset + limit:
-                    metadata = validated.metadata
-                    summaries.append(
-                        DocumentSummary(
-                            document_id=document_id,
-                            filename=metadata.filename,
-                            title=metadata.title,
-                            page_count=validated.manifest.page_count,
-                            chunk_count=validated.manifest.chunk_count,
-                            processing_profile=ProcessingProfile(
-                                processing_profile_id=(metadata.processing_profile_id),
-                                processing_format_version=(
-                                    metadata.processing_format_version
-                                ),
-                                extraction_format_version=(
-                                    metadata.extraction_format_version
-                                ),
-                                chunking_format_version=(
-                                    metadata.chunking_format_version
-                                ),
-                                chunk_max_characters=(metadata.chunk_max_characters),
-                                chunk_overlap_characters=(
-                                    metadata.chunk_overlap_characters
-                                ),
+                metadata = validated.metadata
+                summaries.append(
+                    DocumentSummary(
+                        document_id=document_id,
+                        filename=metadata.filename,
+                        title=metadata.title,
+                        page_count=validated.manifest.page_count,
+                        chunk_count=validated.manifest.chunk_count,
+                        processing_profile=ProcessingProfile(
+                            processing_profile_id=(metadata.processing_profile_id),
+                            processing_format_version=(
+                                metadata.processing_format_version
                             ),
-                            ingested_at=metadata.ingested_at,
-                        )
+                            extraction_format_version=(
+                                metadata.extraction_format_version
+                            ),
+                            chunking_format_version=(metadata.chunking_format_version),
+                            chunk_max_characters=(metadata.chunk_max_characters),
+                            chunk_overlap_characters=(
+                                metadata.chunk_overlap_characters
+                            ),
+                        ),
+                        ingested_at=metadata.ingested_at,
                     )
+                )
             return DocumentListResponse(
                 offset=offset,
                 limit=limit,
@@ -352,7 +350,7 @@ def sanitize_filename(filename: str | None) -> str:
     )
     sanitized = RESERVED_FILENAME_CHARACTERS.sub("_", sanitized)
     sanitized = " ".join(sanitized.split()).strip(" .")
-    sanitized = sanitized[:200].rstrip(" .")
+    sanitized = sanitized[:MAXIMUM_SANITIZED_FILENAME_CHARACTERS].rstrip(" .")
     if not sanitized or not filename_stem(sanitized):
         raise InvalidFilenameError
     return sanitized

@@ -1,0 +1,40 @@
+{% extends "base.html" %} {% block title %}Evidence search · {{ ui_title }}{%
+endblock %} {% block content %}
+<header class="page-header">
+  <p class="eyebrow">Untrusted source content</p>
+  <h1>Evidence search</h1>
+  <p>
+    Ranked passages are evidence-navigation aids, not conclusions or approvals.
+  </p>
+</header>
+<form id="search-form" novalidate>
+  <label for="search-query">Search query</label>
+  <textarea
+    id="search-query"
+    name="query"
+    required
+    maxlength="{{ ui_config.query_characters }}"
+  ></textarea>
+  <label for="search-top-k">Maximum results</label>
+  <input
+    id="search-top-k"
+    name="top_k"
+    type="number"
+    min="1"
+    max="{{ ui_config.retrieval_top_k_maximum }}"
+    value="{{ ui_config.retrieval_top_k_default }}"
+    required
+  />
+  <fieldset>
+    <legend>Document filters <span class="optional">(optional)</span></legend>
+    <div id="search-documents">Loading documents…</div>
+  </fieldset>
+  <button id="search-submit" type="submit">Search evidence</button>
+  <button id="search-cancel" type="button" hidden>Cancel</button>
+</form>
+<div id="search-status" class="status-line" aria-live="polite"></div>
+<section id="search-output" aria-labelledby="search-results-heading" hidden>
+  <h2 id="search-results-heading" tabindex="-1">Search results</h2>
+  <div id="search-results"></div>
+</section>
+{% endblock %}
