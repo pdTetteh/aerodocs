@@ -24,6 +24,7 @@ def test_default_settings(default_settings: Settings) -> None:
     assert default_settings.app_name == "AeroDocs"
     assert default_settings.app_version == "0.1.0"
     assert default_settings.log_level == "INFO"
+    assert default_settings.security_mode == "disabled"
     assert default_settings.document_storage_root == Path("data/runtime")
     assert default_settings.max_pdf_upload_bytes == 25 * 1024 * 1024
     assert default_settings.max_request_body_bytes == 27 * 1024 * 1024
@@ -196,6 +197,14 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "app_name": "AeroDocs",
         "app_version": "0.1.0",
         "log_level": "DEBUG",
+        "security_mode": "disabled",
+        "oidc_issuer": None,
+        "oidc_audience": None,
+        "oidc_jwks_url": None,
+        "oidc_viewer_group": None,
+        "oidc_operator_group": None,
+        "oidc_clock_skew_seconds": 60,
+        "oidc_maximum_token_lifetime_seconds": 900,
         "document_storage_root": "data/runtime",
         "max_pdf_upload_bytes": 26214400,
         "max_request_body_bytes": 28311552,

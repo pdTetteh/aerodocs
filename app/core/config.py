@@ -1,8 +1,10 @@
 """Application configuration loaded from environment variables."""
 
 import re
+import unicodedata
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,6 +19,30 @@ from app.generation.limits import (
 from app.ingestion.limits import MAXIMUM_DOCUMENT_LIST_LIMIT
 
 LogLevel = Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
+SecurityMode = Literal["disabled", "test", "oidc"]
+_NON_PRODUCTION_OIDC_IDENTIFIERS = frozenset(
+    {
+        "*",
+        "aerodocs-api",
+        "demo",
+        "demonstration",
+        "example",
+        "fixture",
+        "fixture-operators",
+        "fixture-viewers",
+        "operator",
+        "organisation-operator-group",
+        "organisation-viewer-group",
+        "placeholder",
+        "sample",
+        "test",
+        "testing",
+        "todo",
+        "viewer",
+        "wrong-api",
+    }
+)
+_WILDCARD_IDENTIFIER_CHARACTERS = frozenset("*?[]")
 PINNED_EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 PINNED_EMBEDDING_MODEL_REVISION = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
 PINNED_GENERATION_MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
@@ -37,6 +63,14 @@ class Settings(BaseSettings):
     app_name: str = "AeroDocs"
     app_version: str = "0.1.0"
     log_level: LogLevel = "INFO"
+    security_mode: SecurityMode = "disabled"
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None
+    oidc_viewer_group: str | None = None
+    oidc_operator_group: str | None = None
+    oidc_clock_skew_seconds: int = 60
+    oidc_maximum_token_lifetime_seconds: int = 15 * 60
     document_storage_root: Path = Path("data/runtime")
     max_pdf_upload_bytes: int = 25 * 1024 * 1024
     max_request_body_bytes: int = 27 * 1024 * 1024
@@ -100,6 +134,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_ingestion_limits(self) -> "Settings":
         """Validate bounded ingestion and chunking configuration."""
+        self.validate_http_security()
         if self.max_pdf_upload_bytes <= 0:
             raise ValueError("max_pdf_upload_bytes must be positive")
         if self.max_request_body_bytes <= self.max_pdf_upload_bytes:
@@ -272,8 +307,106 @@ class Settings(BaseSettings):
             )
         return self
 
+    def validate_http_security(self) -> None:
+        """Validate only the closed HTTP-security configuration."""
+        if self.oidc_clock_skew_seconds != 60:
+            raise ValueError("oidc_clock_skew_seconds must be 60")
+        if self.oidc_maximum_token_lifetime_seconds != 15 * 60:
+            raise ValueError("oidc_maximum_token_lifetime_seconds must be 900")
+        values = (
+            self.oidc_issuer,
+            self.oidc_audience,
+            self.oidc_jwks_url,
+            self.oidc_viewer_group,
+            self.oidc_operator_group,
+        )
+        if self.security_mode != "oidc":
+            if any(value is not None for value in values):
+                raise ValueError("OIDC settings require security_mode=oidc")
+            return
+        if any(value is None for value in values):
+            raise ValueError("oidc mode requires complete OIDC settings")
+        issuer = self.oidc_issuer
+        audience = self.oidc_audience
+        jwks_url = self.oidc_jwks_url
+        viewer = self.oidc_viewer_group
+        operator = self.oidc_operator_group
+        assert issuer is not None
+        assert audience is not None
+        assert jwks_url is not None
+        assert viewer is not None
+        assert operator is not None
+        if len(issuer) > 2_048 or len(jwks_url) > 2_048:
+            raise ValueError("OIDC URLs exceed the configured bound")
+        if not _safe_deployment_identifier(audience, maximum_characters=256):
+            raise ValueError("oidc_audience is invalid")
+        if not _safe_group_mapping(viewer) or not _safe_group_mapping(operator):
+            raise ValueError("OIDC group mappings are invalid")
+        if (
+            viewer != viewer.strip()
+            or operator != operator.strip()
+            or viewer == operator
+        ):
+            raise ValueError("OIDC group mappings must be distinct")
+        issuer_url = urlsplit(issuer)
+        jwks = urlsplit(jwks_url)
+        if (
+            issuer_url.scheme.lower() != "https"
+            or jwks.scheme.lower() != "https"
+            or not issuer_url.hostname
+            or not jwks.hostname
+            or issuer_url.username is not None
+            or issuer_url.password is not None
+            or jwks.username is not None
+            or jwks.password is not None
+            or issuer_url.fragment
+            or jwks.fragment
+            or jwks.query
+        ):
+            raise ValueError("OIDC issuer and JWKS URL must be exact HTTPS URLs")
+        issuer_origin = (
+            issuer_url.scheme.lower(),
+            issuer_url.hostname.lower(),
+            issuer_url.port or 443,
+        )
+        jwks_origin = (
+            jwks.scheme.lower(),
+            jwks.hostname.lower(),
+            jwks.port or 443,
+        )
+        if issuer_origin != jwks_origin:
+            raise ValueError("OIDC issuer and JWKS origins must match")
+
     @staticmethod
     def _minimum_safe_mcp_tool_result_characters() -> int:
         from app.mcp_server.results import MINIMUM_SAFE_TOOL_RESULT_CHARACTERS
 
         return MINIMUM_SAFE_TOOL_RESULT_CHARACTERS
+
+
+def _safe_group_mapping(value: str) -> bool:
+    return _safe_deployment_identifier(
+        value,
+        maximum_characters=128,
+        maximum_bytes=512,
+    )
+
+
+def _safe_deployment_identifier(
+    value: str,
+    *,
+    maximum_characters: int,
+    maximum_bytes: int = 1_024,
+) -> bool:
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return (
+        1 <= len(value) <= maximum_characters
+        and len(value.encode("utf-8")) <= maximum_bytes
+        and value == value.strip()
+        and normalized not in _NON_PRODUCTION_OIDC_IDENTIFIERS
+        and not (_WILDCARD_IDENTIFIER_CHARACTERS & set(value))
+        and all(
+            unicodedata.category(character) not in {"Cc", "Cf", "Cs", "Cn"}
+            for character in value
+        )
+    )

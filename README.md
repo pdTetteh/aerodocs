@@ -45,6 +45,44 @@ The default response is:
 {"name":"AeroDocs","version":"0.1.0","status":"healthy"}
 ```
 
+## Phase 8A direct-bearer security
+
+Local development remains in the closed `disabled` security mode by default.
+That mode installs no authentication middleware and preserves the Milestones
+1–7 routes and development documentation.
+
+Phase 8A also provides `create_phase_8a_secure_app()` as an OIDC-only review
+construction path. It disables OpenAPI, Swagger, and Redoc, audits the exact
+registered FastAPI and Starlette routes, and requires a validated RS256 API
+access token on every route except `GET /health`. Viewer or operator direct
+bearer tokens can read evidence and use the read-only UI; only operator direct
+bearer tokens can upload documents or rebuild the index.
+
+The required OIDC settings are the exact HTTPS issuer, AeroDocs API audience,
+same-origin HTTPS JWKS URL, and distinct organisation-supplied values from the
+bounded `groups` claim. Application construction performs no network request.
+The lifespan performs a bounded initial JWKS preflight; if it fails, health
+remains available while otherwise valid protected requests fail closed.
+The OIDC identifiers shown in `.env.example` are documentation placeholders
+and are deliberately rejected by the secure constructor.
+
+Before duplicate-aware JSON decoding, each JWT header and payload is scanned
+iteratively with a 12 KiB decoded-size ceiling, maximum nesting depth 16, 128
+total object members, 128 total array elements, and 64 total containers. The
+scanner ignores structural characters inside correctly escaped JSON strings.
+
+Phase 8A implements only `direct_bearer`. It has no browser session, gateway
+token, cookies, login redirect, Origin policy, Caddy trust marker, readiness
+endpoint, rate limiter, or deployment entry point. It is therefore not the
+completed controlled-pilot deployment. Browser authentication is reserved for
+the separately reviewed Phase 8B design, whose compatibility candidate is
+Caddy 2.11.4 with the official OAuth2 Proxy 7.15.3 Linux-amd64 artifact and
+officially published checksum/provenance.
+
+Authentication grants evidence access only. Neither role approves maintenance,
+certifies airworthiness, provides engineering sign-off, or authorizes return to
+service.
+
 ## PDF ingestion
 
 Only public or otherwise authorized PDF documents may be ingested. Upload a
