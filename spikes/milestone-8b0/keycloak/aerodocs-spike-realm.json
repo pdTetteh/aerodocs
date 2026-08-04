@@ -1,0 +1,118 @@
+{
+  "realm": "aerodocs-spike",
+  "enabled": true,
+  "defaultSignatureAlgorithm": "RS256",
+  "displayName": "AeroDocs synthetic compatibility spike",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": false,
+  "eventsEnabled": false,
+  "adminEventsEnabled": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 900,
+  "ssoSessionMaxLifespan": 1800,
+  "clients": [
+    {
+      "clientId": "aerodocs-spike-browser",
+      "name": "Synthetic AeroDocs browser client",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "https://aerodocs-spike.invalid/oauth2/callback"
+      ],
+      "webOrigins": [
+        "https://aerodocs-spike.invalid"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://aerodocs-spike.invalid/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "groups",
+        "aerodocs-audience"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "groups",
+      "description": "Bounded synthetic groups claim",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "claim.name": "groups"
+          }
+        }
+      ]
+    },
+    {
+      "name": "aerodocs-audience",
+      "description": "Exact synthetic API audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "aerodocs-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "urn:aerodocs:spike:api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "aerodocs-spike-viewers"
+    }
+  ],
+  "users": [
+    {
+      "username": "synthetic-browser-user",
+      "enabled": true,
+      "emailVerified": false,
+      "groups": [
+        "/aerodocs-spike-viewers"
+      ],
+      "requiredActions": []
+    }
+  ]
+}

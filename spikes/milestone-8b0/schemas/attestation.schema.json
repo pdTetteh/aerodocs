@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aerodocs.invalid/schemas/milestone-8b0-attestation.json",
+  "title": "Stage 8B-0 compatibility attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "platform", "components", "configuration_hashes", "hard_gates", "failed_gates", "failure_code", "review"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "status": {"enum": ["PASS", "FAIL", "NOT_YET_EXECUTED"]},
+    "platform": {
+      "type": "object", "additionalProperties": false,
+      "required": ["os_release", "architecture"],
+      "properties": {"os_release": {"const": "Ubuntu 24.04 LTS"}, "architecture": {"const": "amd64"}}
+    },
+    "components": {
+      "type": "object", "additionalProperties": false,
+      "required": ["caddy", "oauth2_proxy", "keycloak"],
+      "properties": {
+        "caddy": {"$ref": "#/$defs/caddy"},
+        "oauth2_proxy": {"$ref": "#/$defs/oauth2_proxy"},
+        "keycloak": {"$ref": "#/$defs/keycloak"}
+      }
+    },
+    "configuration_hashes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["caddyfile_sha256", "adapted_caddy_json_sha256", "oauth2_proxy_sha256", "realm_sha256", "stock_module_inventory_sha256"],
+      "properties": {
+        "caddyfile_sha256": {"$ref": "#/$defs/maybe_sha256"},
+        "adapted_caddy_json_sha256": {"$ref": "#/$defs/maybe_sha256"},
+        "oauth2_proxy_sha256": {"$ref": "#/$defs/maybe_sha256"},
+        "realm_sha256": {"$ref": "#/$defs/maybe_sha256"},
+        "stock_module_inventory_sha256": {"$ref": "#/$defs/maybe_sha256"}
+      }
+    },
+    "hard_gates": {"$ref": "#/$defs/hard_gates"},
+    "failed_gates": {"type": "array", "uniqueItems": true, "maxItems": 51, "items": {"$ref": "#/$defs/gate_name"}},
+    "failure_code": {"enum": ["NONE", "PLATFORM", "PROVENANCE", "CONFIGURATION", "OIDC", "ROUTING", "AUTHORIZATION", "COOKIE_ENVELOPE", "BROWSER", "DATA_PLANE", "REGRESSION", "EVIDENCE", "CLEANUP", "INCONCLUSIVE"]},
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reviewed", "decision"],
+      "properties": {"reviewed": {"type": "boolean"}, "decision": {"enum": ["PASS", "FAIL", "PENDING"]}}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "maybe_sha256": {"oneOf": [{"const": "UNRESOLVED"}, {"$ref": "#/$defs/sha256"}]},
+    "maybe_digest": {"oneOf": [{"const": "UNRESOLVED"}, {"$ref": "#/$defs/digest"}]},
+    "caddy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "archive_sha256", "binary_sha256", "source", "sigstore_identity", "sigstore_issuer", "transparency_log_verified"],
+      "properties": {
+        "version": {"const": "2.11.4"}, "archive_sha256": {"$ref": "#/$defs/maybe_sha256"}, "binary_sha256": {"$ref": "#/$defs/maybe_sha256"},
+        "source": {"const": "https://github.com/caddyserver/caddy/releases/tag/v2.11.4"},
+        "sigstore_identity": {"oneOf": [{"const": "UNRESOLVED"}, {"type": "string", "pattern": "^https://github\\.com/caddyserver/caddy/\\.github/workflows/[^@/]{1,80}@refs/tags/v2\\.11\\.4$", "maxLength": 180}]},
+        "sigstore_issuer": {"enum": ["UNRESOLVED", "https://token.actions.githubusercontent.com"]},
+        "transparency_log_verified": {"enum": [true, false, "UNRESOLVED"]}
+      }
+    },
+    "oauth2_proxy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "archive_sha256", "binary_sha256", "source"],
+      "properties": {
+        "version": {"const": "7.15.3"}, "archive_sha256": {"$ref": "#/$defs/maybe_sha256"}, "binary_sha256": {"$ref": "#/$defs/maybe_sha256"},
+        "source": {"const": "https://github.com/oauth2-proxy/oauth2-proxy/releases/tag/v7.15.3"}
+      }
+    },
+    "keycloak": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "source_reference", "oci_index_digest", "amd64_manifest_digest", "config_digest", "os", "architecture", "created"],
+      "properties": {
+        "version": {"const": "26.7.0"}, "source_reference": {"const": "quay.io/keycloak/keycloak:26.7.0"},
+        "oci_index_digest": {"$ref": "#/$defs/maybe_digest"}, "amd64_manifest_digest": {"$ref": "#/$defs/maybe_digest"}, "config_digest": {"$ref": "#/$defs/maybe_digest"},
+        "os": {"const": "linux"}, "architecture": {"const": "amd64"},
+        "created": {"oneOf": [{"const": "UNRESOLVED"}, {"type": "string", "pattern": "^[0-9]{4}-", "format": "date-time", "maxLength": 40}]}
+      }
+    },
+    "gate_name": {"enum": [
+      "ubuntu_version", "ubuntu_architecture", "caddy_provenance", "caddy_exact_version", "caddy_stock_modules",
+      "oauth2_proxy_provenance", "oauth2_proxy_exact_version", "keycloak_index_digest", "keycloak_platform_manifest_digest", "keycloak_config_digest", "keycloak_os", "keycloak_architecture", "keycloak_reported_version",
+      "realm_import", "issuer_endpoint_confinement", "rs256", "exact_audience", "bounded_groups", "pkce_s256", "refresh_support", "no_experimental_features", "loopback_isolation",
+      "adapted_caddy_validation", "health_route", "oauth2_routes", "hostile_header_stripping", "direct_bearer_separation", "duplicate_authorization_http1", "duplicate_authorization_http2",
+      "initial_login", "forced_refresh", "clearing_refresh", "repeated_set_cookie", "gateway_token_limit", "active_cookie_values_limit", "active_cookie_parts_limit", "cookie_name_value_limit", "set_cookie_field_limit", "incoming_cookie_limit", "set_cookie_total_limit", "set_cookie_count_limit", "auth_response_header_limit",
+      "json_navigation_behavior", "operator_mutation_behavior", "unknown_route_behavior", "long_running_response", "data_plane_separation", "secret_scan", "protected_file_comparison", "regression_suite", "podman_interruption_cleanup", "cleanup"
+    ]},
+    "hard_gates": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "ubuntu_version", "ubuntu_architecture", "caddy_provenance", "caddy_exact_version", "caddy_stock_modules",
+        "oauth2_proxy_provenance", "oauth2_proxy_exact_version", "keycloak_index_digest", "keycloak_platform_manifest_digest", "keycloak_config_digest", "keycloak_os", "keycloak_architecture", "keycloak_reported_version",
+        "realm_import", "issuer_endpoint_confinement", "rs256", "exact_audience", "bounded_groups", "pkce_s256", "refresh_support", "no_experimental_features", "loopback_isolation",
+        "adapted_caddy_validation", "health_route", "oauth2_routes", "hostile_header_stripping", "direct_bearer_separation", "duplicate_authorization_http1", "duplicate_authorization_http2",
+        "initial_login", "forced_refresh", "clearing_refresh", "repeated_set_cookie", "gateway_token_limit", "active_cookie_values_limit", "active_cookie_parts_limit", "cookie_name_value_limit", "set_cookie_field_limit", "incoming_cookie_limit", "set_cookie_total_limit", "set_cookie_count_limit", "auth_response_header_limit",
+        "json_navigation_behavior", "operator_mutation_behavior", "unknown_route_behavior", "long_running_response", "data_plane_separation", "secret_scan", "protected_file_comparison", "regression_suite", "podman_interruption_cleanup", "cleanup"
+      ],
+      "properties": {
+        "ubuntu_version": {"$ref": "#/$defs/gate_state"}, "ubuntu_architecture": {"$ref": "#/$defs/gate_state"}, "caddy_provenance": {"$ref": "#/$defs/gate_state"}, "caddy_exact_version": {"$ref": "#/$defs/gate_state"}, "caddy_stock_modules": {"$ref": "#/$defs/gate_state"},
+        "oauth2_proxy_provenance": {"$ref": "#/$defs/gate_state"}, "oauth2_proxy_exact_version": {"$ref": "#/$defs/gate_state"}, "keycloak_index_digest": {"$ref": "#/$defs/gate_state"}, "keycloak_platform_manifest_digest": {"$ref": "#/$defs/gate_state"}, "keycloak_config_digest": {"$ref": "#/$defs/gate_state"}, "keycloak_os": {"$ref": "#/$defs/gate_state"}, "keycloak_architecture": {"$ref": "#/$defs/gate_state"}, "keycloak_reported_version": {"$ref": "#/$defs/gate_state"},
+        "realm_import": {"$ref": "#/$defs/gate_state"}, "issuer_endpoint_confinement": {"$ref": "#/$defs/gate_state"}, "rs256": {"$ref": "#/$defs/gate_state"}, "exact_audience": {"$ref": "#/$defs/gate_state"}, "bounded_groups": {"$ref": "#/$defs/gate_state"}, "pkce_s256": {"$ref": "#/$defs/gate_state"}, "refresh_support": {"$ref": "#/$defs/gate_state"}, "no_experimental_features": {"$ref": "#/$defs/gate_state"}, "loopback_isolation": {"$ref": "#/$defs/gate_state"},
+        "adapted_caddy_validation": {"$ref": "#/$defs/gate_state"}, "health_route": {"$ref": "#/$defs/gate_state"}, "oauth2_routes": {"$ref": "#/$defs/gate_state"}, "hostile_header_stripping": {"$ref": "#/$defs/gate_state"}, "direct_bearer_separation": {"$ref": "#/$defs/gate_state"}, "duplicate_authorization_http1": {"$ref": "#/$defs/gate_state"}, "duplicate_authorization_http2": {"$ref": "#/$defs/gate_state"},
+        "initial_login": {"$ref": "#/$defs/gate_state"}, "forced_refresh": {"$ref": "#/$defs/gate_state"}, "clearing_refresh": {"$ref": "#/$defs/gate_state"}, "repeated_set_cookie": {"$ref": "#/$defs/gate_state"}, "gateway_token_limit": {"$ref": "#/$defs/gate_state"}, "active_cookie_values_limit": {"$ref": "#/$defs/gate_state"}, "active_cookie_parts_limit": {"$ref": "#/$defs/gate_state"}, "cookie_name_value_limit": {"$ref": "#/$defs/gate_state"}, "set_cookie_field_limit": {"$ref": "#/$defs/gate_state"}, "incoming_cookie_limit": {"$ref": "#/$defs/gate_state"}, "set_cookie_total_limit": {"$ref": "#/$defs/gate_state"}, "set_cookie_count_limit": {"$ref": "#/$defs/gate_state"}, "auth_response_header_limit": {"$ref": "#/$defs/gate_state"},
+        "json_navigation_behavior": {"$ref": "#/$defs/gate_state"}, "operator_mutation_behavior": {"$ref": "#/$defs/gate_state"}, "unknown_route_behavior": {"$ref": "#/$defs/gate_state"}, "long_running_response": {"$ref": "#/$defs/gate_state"}, "data_plane_separation": {"$ref": "#/$defs/gate_state"}, "secret_scan": {"$ref": "#/$defs/gate_state"}, "protected_file_comparison": {"$ref": "#/$defs/gate_state"}, "regression_suite": {"$ref": "#/$defs/gate_state"}, "podman_interruption_cleanup": {"$ref": "#/$defs/gate_state"}, "cleanup": {"$ref": "#/$defs/gate_state"}
+      }
+    },
+    "gate_state": {"enum": ["PASS", "FAIL", "NOT_YET_EXECUTED"]}
+  },
+  "allOf": [
+    {"if": {"required": ["status"], "properties": {"status": {"const": "NOT_YET_EXECUTED"}}}, "then": {"properties": {"hard_gates": {"patternProperties": {".*": {"const": "NOT_YET_EXECUTED"}}}, "failed_gates": {"maxItems": 0}, "failure_code": {"const": "NONE"}, "review": {"properties": {"reviewed": {"const": false}, "decision": {"const": "PENDING"}}}}}},
+    {"if": {"required": ["status"], "properties": {"status": {"const": "FAIL"}}}, "then": {"properties": {"failed_gates": {"minItems": 1}, "failure_code": {"not": {"const": "NONE"}}, "review": {"properties": {"reviewed": {"const": false}, "decision": {"const": "FAIL"}}}}}},
+    {"if": {"required": ["status"], "properties": {"status": {"const": "PASS"}}}, "then": {"properties": {
+      "hard_gates": {"patternProperties": {".*": {"const": "PASS"}}}, "failed_gates": {"maxItems": 0}, "failure_code": {"const": "NONE"},
+      "review": {"properties": {"reviewed": {"const": true}, "decision": {"const": "PASS"}}},
+      "configuration_hashes": {"properties": {"caddyfile_sha256": {"$ref": "#/$defs/sha256"}, "adapted_caddy_json_sha256": {"$ref": "#/$defs/sha256"}, "oauth2_proxy_sha256": {"$ref": "#/$defs/sha256"}, "realm_sha256": {"$ref": "#/$defs/sha256"}, "stock_module_inventory_sha256": {"$ref": "#/$defs/sha256"}}},
+      "components": {"properties": {
+        "caddy": {"properties": {"archive_sha256": {"$ref": "#/$defs/sha256"}, "binary_sha256": {"$ref": "#/$defs/sha256"}, "sigstore_identity": {"type": "string", "pattern": "^https://github\\.com/caddyserver/caddy/\\.github/workflows/[^@/]{1,80}@refs/tags/v2\\.11\\.4$"}, "sigstore_issuer": {"const": "https://token.actions.githubusercontent.com"}, "transparency_log_verified": {"const": true}}},
+        "oauth2_proxy": {"properties": {"archive_sha256": {"$ref": "#/$defs/sha256"}, "binary_sha256": {"$ref": "#/$defs/sha256"}}},
+        "keycloak": {"properties": {"oci_index_digest": {"$ref": "#/$defs/digest"}, "amd64_manifest_digest": {"$ref": "#/$defs/digest"}, "config_digest": {"$ref": "#/$defs/digest"}, "created": {"type": "string", "format": "date-time"}}}
+      }}
+    }}}
+  ]
+}

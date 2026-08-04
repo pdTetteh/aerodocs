@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "status": "NOT_YET_EXECUTED",
+  "platform": {"os_release": "Ubuntu 24.04 LTS", "architecture": "amd64"},
+  "components": {
+    "caddy": {
+      "version": "2.11.4", "archive_sha256": "UNRESOLVED", "binary_sha256": "UNRESOLVED",
+      "source": "https://github.com/caddyserver/caddy/releases/tag/v2.11.4",
+      "sigstore_identity": "UNRESOLVED", "sigstore_issuer": "UNRESOLVED", "transparency_log_verified": "UNRESOLVED"
+    },
+    "oauth2_proxy": {
+      "version": "7.15.3", "archive_sha256": "UNRESOLVED", "binary_sha256": "UNRESOLVED",
+      "source": "https://github.com/oauth2-proxy/oauth2-proxy/releases/tag/v7.15.3"
+    },
+    "keycloak": {
+      "version": "26.7.0", "source_reference": "quay.io/keycloak/keycloak:26.7.0",
+      "oci_index_digest": "UNRESOLVED", "amd64_manifest_digest": "UNRESOLVED", "config_digest": "UNRESOLVED",
+      "os": "linux", "architecture": "amd64", "created": "UNRESOLVED"
+    }
+  },
+  "configuration_hashes": {
+    "caddyfile_sha256": "UNRESOLVED", "adapted_caddy_json_sha256": "UNRESOLVED",
+    "oauth2_proxy_sha256": "UNRESOLVED", "realm_sha256": "UNRESOLVED", "stock_module_inventory_sha256": "UNRESOLVED"
+  },
+  "hard_gates": {
+    "ubuntu_version": "NOT_YET_EXECUTED", "ubuntu_architecture": "NOT_YET_EXECUTED", "caddy_provenance": "NOT_YET_EXECUTED", "caddy_exact_version": "NOT_YET_EXECUTED", "caddy_stock_modules": "NOT_YET_EXECUTED",
+    "oauth2_proxy_provenance": "NOT_YET_EXECUTED", "oauth2_proxy_exact_version": "NOT_YET_EXECUTED", "keycloak_index_digest": "NOT_YET_EXECUTED", "keycloak_platform_manifest_digest": "NOT_YET_EXECUTED", "keycloak_config_digest": "NOT_YET_EXECUTED", "keycloak_os": "NOT_YET_EXECUTED", "keycloak_architecture": "NOT_YET_EXECUTED", "keycloak_reported_version": "NOT_YET_EXECUTED",
+    "realm_import": "NOT_YET_EXECUTED", "issuer_endpoint_confinement": "NOT_YET_EXECUTED", "rs256": "NOT_YET_EXECUTED", "exact_audience": "NOT_YET_EXECUTED", "bounded_groups": "NOT_YET_EXECUTED", "pkce_s256": "NOT_YET_EXECUTED", "refresh_support": "NOT_YET_EXECUTED", "no_experimental_features": "NOT_YET_EXECUTED", "loopback_isolation": "NOT_YET_EXECUTED",
+    "adapted_caddy_validation": "NOT_YET_EXECUTED", "health_route": "NOT_YET_EXECUTED", "oauth2_routes": "NOT_YET_EXECUTED", "hostile_header_stripping": "NOT_YET_EXECUTED", "direct_bearer_separation": "NOT_YET_EXECUTED", "duplicate_authorization_http1": "NOT_YET_EXECUTED", "duplicate_authorization_http2": "NOT_YET_EXECUTED",
+    "initial_login": "NOT_YET_EXECUTED", "forced_refresh": "NOT_YET_EXECUTED", "clearing_refresh": "NOT_YET_EXECUTED", "repeated_set_cookie": "NOT_YET_EXECUTED", "gateway_token_limit": "NOT_YET_EXECUTED", "active_cookie_values_limit": "NOT_YET_EXECUTED", "active_cookie_parts_limit": "NOT_YET_EXECUTED", "cookie_name_value_limit": "NOT_YET_EXECUTED", "set_cookie_field_limit": "NOT_YET_EXECUTED", "incoming_cookie_limit": "NOT_YET_EXECUTED", "set_cookie_total_limit": "NOT_YET_EXECUTED", "set_cookie_count_limit": "NOT_YET_EXECUTED", "auth_response_header_limit": "NOT_YET_EXECUTED",
+    "json_navigation_behavior": "NOT_YET_EXECUTED", "operator_mutation_behavior": "NOT_YET_EXECUTED", "unknown_route_behavior": "NOT_YET_EXECUTED", "long_running_response": "NOT_YET_EXECUTED", "data_plane_separation": "NOT_YET_EXECUTED", "secret_scan": "NOT_YET_EXECUTED", "protected_file_comparison": "NOT_YET_EXECUTED", "regression_suite": "NOT_YET_EXECUTED", "podman_interruption_cleanup": "NOT_YET_EXECUTED", "cleanup": "NOT_YET_EXECUTED"
+  },
+  "failed_gates": [],
+  "failure_code": "NONE",
+  "review": {"reviewed": false, "decision": "PENDING"}
+}

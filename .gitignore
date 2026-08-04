@@ -32,6 +32,14 @@ data/generated/
 data/temporary/
 data/runtime/
 
+# Milestone 8B-0 compatibility-spike runtime material
+spikes/milestone-8b0/runtime/
+spikes/milestone-8b0/**/*.actual
+spikes/milestone-8b0/**/*.secret
+spikes/milestone-8b0/**/*.token
+spikes/milestone-8b0/**/*.cookie
+spikes/milestone-8b0/**/*.pcap
+
 # Editors and operating systems
 .DS_Store
 .idea/

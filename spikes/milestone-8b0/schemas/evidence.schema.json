@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aerodocs.invalid/schemas/milestone-8b0-evidence.json",
+  "title": "Sanitized Stage 8B-0 evidence event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "test_id", "observed_at", "result", "measurements", "failure_code"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "test_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,95}$"},
+    "observed_at": {"type": "string", "format": "date-time", "maxLength": 40},
+    "result": {"enum": ["PASS", "FAIL", "NOT_YET_EXECUTED"]},
+    "measurements": {
+      "type": "object", "maxProperties": 64,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,63}$"},
+      "additionalProperties": {"oneOf": [{"type": "boolean"}, {"type": "integer", "minimum": 0, "maximum": 1073741824}]}
+    },
+    "failure_code": {"enum": ["NONE", "PLATFORM", "PROVENANCE", "CONFIGURATION", "OIDC", "ROUTING", "AUTHORIZATION", "COOKIE_ENVELOPE", "BROWSER", "DATA_PLANE", "REGRESSION", "EVIDENCE", "CLEANUP", "INCONCLUSIVE"]},
+    "gate_results": {
+      "type": "object", "minProperties": 1, "additionalProperties": false,
+      "properties": {
+        "ubuntu_version": {"$ref": "#/$defs/gate_result"}, "ubuntu_architecture": {"$ref": "#/$defs/gate_result"}, "caddy_provenance": {"$ref": "#/$defs/gate_result"}, "caddy_exact_version": {"$ref": "#/$defs/gate_result"}, "caddy_stock_modules": {"$ref": "#/$defs/gate_result"}, "oauth2_proxy_provenance": {"$ref": "#/$defs/gate_result"}, "oauth2_proxy_exact_version": {"$ref": "#/$defs/gate_result"}, "keycloak_index_digest": {"$ref": "#/$defs/gate_result"}, "keycloak_platform_manifest_digest": {"$ref": "#/$defs/gate_result"}, "keycloak_config_digest": {"$ref": "#/$defs/gate_result"}, "keycloak_os": {"$ref": "#/$defs/gate_result"}, "keycloak_architecture": {"$ref": "#/$defs/gate_result"}, "keycloak_reported_version": {"$ref": "#/$defs/gate_result"}, "realm_import": {"$ref": "#/$defs/gate_result"}, "issuer_endpoint_confinement": {"$ref": "#/$defs/gate_result"}, "rs256": {"$ref": "#/$defs/gate_result"}, "exact_audience": {"$ref": "#/$defs/gate_result"}, "bounded_groups": {"$ref": "#/$defs/gate_result"}, "pkce_s256": {"$ref": "#/$defs/gate_result"}, "refresh_support": {"$ref": "#/$defs/gate_result"}, "no_experimental_features": {"$ref": "#/$defs/gate_result"}, "loopback_isolation": {"$ref": "#/$defs/gate_result"}, "adapted_caddy_validation": {"$ref": "#/$defs/gate_result"}, "health_route": {"$ref": "#/$defs/gate_result"}, "oauth2_routes": {"$ref": "#/$defs/gate_result"}, "hostile_header_stripping": {"$ref": "#/$defs/gate_result"}, "direct_bearer_separation": {"$ref": "#/$defs/gate_result"}, "duplicate_authorization_http1": {"$ref": "#/$defs/gate_result"}, "duplicate_authorization_http2": {"$ref": "#/$defs/gate_result"}, "initial_login": {"$ref": "#/$defs/gate_result"}, "forced_refresh": {"$ref": "#/$defs/gate_result"}, "clearing_refresh": {"$ref": "#/$defs/gate_result"}, "repeated_set_cookie": {"$ref": "#/$defs/gate_result"}, "gateway_token_limit": {"$ref": "#/$defs/gate_result"}, "active_cookie_values_limit": {"$ref": "#/$defs/gate_result"}, "active_cookie_parts_limit": {"$ref": "#/$defs/gate_result"}, "cookie_name_value_limit": {"$ref": "#/$defs/gate_result"}, "set_cookie_field_limit": {"$ref": "#/$defs/gate_result"}, "incoming_cookie_limit": {"$ref": "#/$defs/gate_result"}, "set_cookie_total_limit": {"$ref": "#/$defs/gate_result"}, "set_cookie_count_limit": {"$ref": "#/$defs/gate_result"}, "auth_response_header_limit": {"$ref": "#/$defs/gate_result"}, "json_navigation_behavior": {"$ref": "#/$defs/gate_result"}, "operator_mutation_behavior": {"$ref": "#/$defs/gate_result"}, "unknown_route_behavior": {"$ref": "#/$defs/gate_result"}, "long_running_response": {"$ref": "#/$defs/gate_result"}, "data_plane_separation": {"$ref": "#/$defs/gate_result"}, "secret_scan": {"$ref": "#/$defs/gate_result"}, "protected_file_comparison": {"$ref": "#/$defs/gate_result"}, "regression_suite": {"$ref": "#/$defs/gate_result"}, "podman_interruption_cleanup": {"$ref": "#/$defs/gate_result"}, "cleanup": {"$ref": "#/$defs/gate_result"}
+      }
+    }
+  },
+  "$defs": {"gate_result": {"type": "object", "additionalProperties": false, "required": ["result", "measurements"], "properties": {"result": {"enum": ["PASS", "FAIL"]}, "measurements": {"type": "object", "minProperties": 1, "maxProperties": 16, "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,63}$"}, "additionalProperties": {"oneOf": [{"type": "boolean"}, {"type": "integer", "minimum": 0, "maximum": 1073741824}]}}}}},
+  "allOf": [
+    {"if": {"properties": {"result": {"const": "FAIL"}}}, "then": {"properties": {"failure_code": {"not": {"const": "NONE"}}}}},
+    {"if": {"properties": {"result": {"enum": ["PASS", "NOT_YET_EXECUTED"]}}}, "then": {"properties": {"failure_code": {"const": "NONE"}}}}
+  ]
+}

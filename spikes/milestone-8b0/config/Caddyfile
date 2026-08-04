@@ -1,0 +1,143 @@
+{
+	admin 127.0.0.1:2019
+	servers {
+		# This bounds incoming request headers only. Independent Cookie and
+		# authentication-response limits are decisive live gates below.
+		max_header_size 24KiB
+	}
+}
+
+https://idp.aerodocs-spike.invalid {
+	tls internal
+	reverse_proxy 127.0.0.1:18080 {
+		header_up Host {host}
+		header_up X-Forwarded-Proto https
+		transport http {
+			max_response_header 24KiB
+		}
+	}
+}
+
+https://aerodocs-spike.invalid {
+	tls internal
+
+	route {
+		# Remove every client-controlled identity representation before any
+		# branch. Go's Header map makes these deletions case-insensitive and
+		# removes all repeated values. Underscore aliases are named separately.
+		request_header -X-AeroDocs-Gateway-Access-Token
+		request_header -X-Auth-Request-Access-Token
+		request_header -X-Forwarded-User
+		request_header -X-Forwarded-Groups
+		request_header -X-Forwarded-Email
+		request_header -X-Forwarded-Preferred-Username
+		request_header -X-Forwarded-Access-Token
+		request_header -X-Forwarded-Basic-Auth
+		request_header -Remote-User
+		request_header -Remote-Groups
+		request_header -Remote-Email
+		request_header -X_AeroDocs_Gateway_Access_Token
+		request_header -X_Auth_Request_Access_Token
+		request_header -X_Forwarded_User
+		request_header -X_Forwarded_Groups
+		request_header -X_Forwarded_Email
+		request_header -X_Forwarded_Preferred_Username
+		request_header -X_Forwarded_Access_Token
+
+		@health {
+			method GET
+			path /health
+		}
+		handle @health {
+			request_header -Authorization
+			request_header -Cookie
+			request_header -Set-Cookie
+			rewrite * /__mock/health
+			reverse_proxy 127.0.0.1:18000
+		}
+		@other_health path /health
+		handle @other_health {
+			respond `{"detail":"not_found"}` 404
+		}
+
+		@oauth_control path /oauth2 /oauth2/*
+		handle @oauth_control {
+			request_header -Authorization
+			request_header -Set-Cookie
+			reverse_proxy 127.0.0.1:14180 {
+				transport http {
+					max_response_header 24KiB
+				}
+			}
+		}
+
+		# A header matcher with no value matches field presence, including an
+		# empty field. A value-glob matcher is forbidden here.
+		@direct header Authorization
+		handle @direct {
+			request_header -Cookie
+			request_header -Set-Cookie
+			reverse_proxy 127.0.0.1:18000
+		}
+
+		@operator_without_bearer {
+			method POST
+			path /documents /indexes/rebuild
+		}
+		handle @operator_without_bearer {
+			respond `{"detail":"invalid_credentials"}` 401
+		}
+
+		@browser_json expression `(method('GET') && (path('/documents', '/indexes/active', '/ui/api/index-status') || path_regexp('^/documents/[^/]+(?:/pages|/chunks)?$'))) || (method('POST') && path('/search', '/answers'))`
+		handle @browser_json {
+			reverse_proxy 127.0.0.1:14180 {
+				method GET
+				rewrite /oauth2/auth
+				header_up Content-Length "0"
+				header_up -Content-Type
+				header_up X-Forwarded-Method {method}
+				header_up X-Forwarded-Uri {uri}
+				handle_response {
+					header Content-Type application/json
+					header Cache-Control "no-store, max-age=0"
+					# Stock Caddy exposes a scalar response-header placeholder but
+					# no reviewed primitive that proves the source field cardinality.
+					# Fail closed: no browser-authenticated request reaches AeroDocs.
+					respond `{"detail":"authentication_envelope_unavailable"}` 503
+				}
+				transport http {
+					max_response_header 24KiB
+				}
+			}
+		}
+
+		@ui_navigation path /ui/ /ui/documents /ui/search /ui/ask
+		handle @ui_navigation {
+			reverse_proxy 127.0.0.1:14180 {
+				method GET
+				rewrite /oauth2/auth
+				header_up Content-Length "0"
+				header_up -Content-Type
+				header_up X-Forwarded-Method {method}
+				header_up X-Forwarded-Uri {uri}
+				handle_response {
+					header Content-Type application/json
+					header Cache-Control "no-store, max-age=0"
+					respond `{"detail":"authentication_envelope_unavailable"}` 503
+				}
+				transport http {
+					max_response_header 24KiB
+				}
+			}
+		}
+
+		@ui_assets path /ui/assets/*
+		handle @ui_assets {
+			respond `{"detail":"not_found"}` 404
+		}
+
+		handle {
+			respond `{"detail":"not_found"}` 404
+		}
+	}
+}
