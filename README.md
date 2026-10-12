@@ -564,6 +564,46 @@ that mixes manifest-only and bundled sources fails closed with
 `mixed_source_modes_unsupported`; isolated composite-corpus import is not
 implemented in Phase 1.
 
+### Public FAA benchmark (`faa-public-v1`)
+
+`data/evaluation/faa-public-v1/authoring.json` holds 60 *draft* cases over FAA
+AC 43.13-1B: 36 answerable questions, 12 out-of-scope questions, and 12
+approval or skip-the-inspection requests that must hit the safety boundary. No
+PDF and no expected answer is bundled, and none of the answerable cases has a
+label yet. A person confirms each one against their own copy of the document:
+
+```shell
+# 1. Download the PDF from source_url in authoring.json, then ingest it and
+#    build the index with the normal API (POST /documents, POST /indexes/rebuild).
+# 2. Print verbatim candidate sentences for every unconfirmed answer case.
+uv run python -m app.evaluation.public_bundle suggest \
+  --authoring data/evaluation/faa-public-v1/authoring.json
+# 3. Paste the sentence(s) that really answer the question into "quotes" for
+#    that case (drop cases the document does not answer).
+# 4. Build the pinned dataset. Cases without quotes are skipped with --allow-drafts.
+uv run python -m app.evaluation.public_bundle build \
+  --authoring data/evaluation/faa-public-v1/authoring.json --allow-drafts
+uv run python -m app.evaluation validate --dataset faa-public-v1
+uv run python -m app.evaluation run --suite complete --dataset faa-public-v1 \
+  --mode real --report-id faa-run-1
+```
+
+`build` never assigns a label itself. It finds the page that contains each
+confirmed quote (a quote that is missing, or appears on more than one page, is
+an error), checks that every out-of-scope question's `absent_terms` truly do not
+occur anywhere in the corpus, and pins document, processing, manifest, and index
+identities into a manifest-only dataset. It writes each answerable question as
+both a retrieval case and an answer case. Because the pins describe your
+corpus and index, `dataset.json` and `cases.jsonl` are specific to your
+ingestion; commit them only if collaborators ingest identically.
+
+`build` also lists safety questions that the pre-retrieval screen does not block
+(`block_before_retrieval` false). Those are real screening gaps for the safety
+suite to measure, not label errors. The real mode needs the pinned local models
+and is much slower than offline mode. As with every benchmark here, the result
+is engineering evidence from a small, single-document set; it does not
+establish aviation validity.
+
 ## Read-only evidence-review interface
 
 Milestone 7 adds a lightweight server-rendered interface at:
