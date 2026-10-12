@@ -33,7 +33,7 @@ def test_default_settings(default_settings: Settings) -> None:
     assert default_settings.max_extracted_characters_total == 10_000_000
     assert default_settings.allowed_pdf_media_type == "application/pdf"
     assert default_settings.extraction_format_version == "1"
-    assert default_settings.chunking_format_version == "1"
+    assert default_settings.chunking_format_version == "2"
     assert default_settings.processing_format_version == "1"
     assert default_settings.chunk_max_characters == 2_000
     assert default_settings.chunk_overlap_characters == 200
@@ -213,7 +213,7 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "max_extracted_characters_total": 10000000,
         "allowed_pdf_media_type": "application/pdf",
         "extraction_format_version": "1",
-        "chunking_format_version": "1",
+        "chunking_format_version": "2",
         "processing_format_version": "1",
         "chunk_max_characters": 2000,
         "chunk_overlap_characters": 200,

@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     max_extracted_characters_total: int = 10_000_000
     allowed_pdf_media_type: str = "application/pdf"
     extraction_format_version: str = "1"
-    chunking_format_version: str = "1"
+    chunking_format_version: str = "2"
     processing_format_version: str = "1"
     chunk_max_characters: int = 2_000
     chunk_overlap_characters: int = 200

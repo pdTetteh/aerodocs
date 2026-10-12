@@ -19,20 +19,40 @@ INSTRUCTION_PATTERNS = (
         r"\bignore (?:all |any )?(?:previous|prior|system) instructions?\b",
         re.I,
     ),
-    re.compile(r"\b(?:system|assistant|developer)\s*:", re.I),
-    re.compile(r"\bdo not (?:cite|mention|follow)\b", re.I),
+    re.compile(
+        r"\bdo not (?:cite|mention|reference)\s+(?:any |the |these |this )?"
+        r"(?:sources?|documents?|evidence|citations?)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bdo not follow (?:the |any )?(?:above|previous|prior|system|developer)\s+"
+        r"(?:instructions?|rules?|prompts?)\b",
+        re.I,
+    ),
     re.compile(
         r"\breveal (?:the )?(?:system )?(?:prompt|instructions?|secrets?)\b",
         re.I,
     ),
     re.compile(
-        r"\b(?:disregard|override)\b.{0,60}"
-        r"\b(?:previous|prior|system|developer|rules?|instructions?)\b",
+        r"\b(?:disregard|override|ignore)\b.{0,40}"
+        r"\b(?:previous|prior|above|earlier|system|developer)\s+"
+        r"(?:instructions?|rules?|prompts?|messages?|guidelines)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\boverride\b.{0,40}\b(?:system|developer)\s+(?:prompt|instructions?|rules?)\b",
         re.I,
     ),
     re.compile(r"\bfollow (?:these|the following) instructions? instead\b", re.I),
     re.compile(
-        r"\bwhen answering\b.{0,60}\b(?:output|return|respond|say|state)\b",
+        r"\bwhen (?:answering|responding)\s*[,:]\s*.{0,60}"
+        r"\b(?:output|return|respond|say|state)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bwhen (?:answering|responding to) (?:the |this |any )?"
+        r"(?:user|questions?|quer(?:y|ies)|requests?)\b.{0,60}"
+        r"\b(?:output|return|respond|say|state)\b",
         re.I,
     ),
     re.compile(r"\bact as (?:the )?(?:system|developer|assistant)\b", re.I),
@@ -42,7 +62,8 @@ INSTRUCTION_PATTERNS = (
         re.I,
     ),
     re.compile(
-        r"\bbypass\b.{0,50}\b(?:grounding|safety|abstention|policy|rules?)\b",
+        r"\bbypass\b.{0,50}\b(?:grounding|abstention|citation checks?|guardrails?"
+        r"|safety (?:checks?|filters?|polic(?:y|ies))|polic(?:y|ies))\b",
         re.I,
     ),
 )
@@ -52,8 +73,11 @@ BASE64_BLOCK = re.compile(
 )
 SAFETY_BOUNDARY_PATTERNS = (
     re.compile(
-        r"\b(?:approve|certify|authorize).{0,40}"
-        r"\b(?:maintenance|airworthiness)\b",
+        r"\b(?:approve|certify|authori[sz]e)\b.{0,40}"
+        r"\b(?:airworthiness|return to service|release to service"
+        r"|maintenance\b(?!\s+(?:teams?|crews?|staff|personnel|crib|schedules?"
+        r"|planning|departments?|facilit(?:y|ies)|hangars?|shops?|managers?"
+        r"|engineers?|technicians?|programs?)\b))",
         re.I,
     ),
     re.compile(r"\bdeclare.{0,30}\bairworthy\b", re.I),
@@ -84,9 +108,14 @@ SAFETY_BOUNDARY_PATTERNS = (
         re.I,
     ),
     re.compile(
-        r"\b(?:approve|certify|authorize|sign[ -]?off|release|return|clear)\b"
-        r".{0,80}\b(?:aircraft|maintenance|repair|modification|work|service"
-        r"|operation|flight)\b",
+        r"\b(?:approve|certify|authori[sz]e|sign[ -]?off)\b.{0,40}"
+        r"\b(?:repairs?|modifications?|work(?: orders?)?|aircraft|task cards?"
+        r"|logbooks?|inspections?|installations?)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:release|return|clear)\b.{0,40}\b(?:to|for) "
+        r"(?:service|flight|operation)\b",
         re.I,
     ),
     re.compile(
@@ -103,6 +132,12 @@ SAFETY_BOUNDARY_PATTERNS = (
     re.compile(
         r"\b(?:bypass|ignore|skip|override)\b.{0,50}"
         r"\b(?:required )?(?:procedure|inspection|check|limit|safety rule)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:procedure|inspection|check|limit)s?\b.{0,40}"
+        r"\b(?:should|can|could|may|would|do|to)\s+(?:i|we|you)\s+"
+        r"(?:skip|bypass|ignore|override|omit)\b",
         re.I,
     ),
 )
@@ -136,6 +171,7 @@ class ContextAssembly:
     character_count: int
     injection_detected: bool
     conflict_evidence_ids: list[str]
+    quarantined_evidence_count: int = 0
 
 
 def assemble_context(
@@ -145,11 +181,14 @@ def assemble_context(
     """Build deterministic bounded evidence from authoritative search results."""
     passages: list[EvidencePassage] = []
     total = 0
-    injection = False
+    quarantined = 0
     for result in response.results:
         if len(passages) >= settings.maximum_answer_context_chunks:
             break
-        injection = injection or contains_embedded_instruction(result.text)
+        if contains_embedded_instruction(result.text):
+            # Quarantine only the offending item; it never reaches the model.
+            quarantined += 1
+            continue
         remaining = settings.maximum_answer_context_characters - total
         if remaining <= 0:
             break
@@ -179,8 +218,9 @@ def assemble_context(
         evidence=passages,
         context_json=context_json,
         character_count=total,
-        injection_detected=injection,
+        injection_detected=quarantined > 0 and not passages,
         conflict_evidence_ids=conflict_ids,
+        quarantined_evidence_count=quarantined,
     )
 
 
