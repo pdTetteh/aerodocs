@@ -56,7 +56,8 @@ construction path. It disables OpenAPI, Swagger, and Redoc, audits the exact
 registered FastAPI and Starlette routes, and requires a validated RS256 API
 access token on every route except `GET /health`. Viewer or operator direct
 bearer tokens can read evidence and use the read-only UI; only operator direct
-bearer tokens can upload documents or rebuild the index.
+bearer tokens can upload documents, rebuild the index, create work-order drafts,
+and review them.
 
 The required OIDC settings are the exact HTTPS issuer, AeroDocs API audience,
 same-origin HTTPS JWKS URL, and distinct organisation-supplied values from the
@@ -354,6 +355,40 @@ synthetic or public-document cases do not establish broad aviation validity.
 Generated answers are evidence-navigation aids only. They do not approve
 maintenance, establish airworthiness, replace controlling manufacturer
 documentation or regulations, or replace qualified engineering judgment.
+
+## Human-reviewed work-order drafts
+
+`POST /work-orders` takes a defect report (title, description, optional
+component and document scope) and researches it through the same grounded
+answer pipeline. The four questions are fixed server-side templates —
+inspection, limits, repair or replacement, and required approvals — so neither
+the defect text nor retrieved documents choose the research steps. Each
+finding is `supported` (claims with numbered citations and the audit ID of the
+underlying answer), `abstained` (with the reason), or `failed` (with a stable
+error code). If every question fails the request returns that error and stores
+nothing. Drafts are written atomically to `AERODOCS_WORK_ORDER_ROOT`, with a
+content hash that is re-verified on every read.
+
+| Method | Path | Role |
+| --- | --- | --- |
+| `POST` | `/work-orders` | operator |
+| `GET` | `/work-orders`, `/work-orders/{id}` | viewer or operator |
+| `POST` | `/work-orders/{id}/review` | operator |
+
+A draft starts as `draft` and ends as `human_confirmed` or `human_rejected`
+after exactly one review. Confirming requires `acknowledge_human_responsibility:
+true` and a non-empty note. Under authentication the reviewer is the verified
+token subject and a `reviewer` field in the body is refused; with
+authentication disabled the reviewer name is self-declared and recorded as
+unverified. By default (`AERODOCS_WORK_ORDER_REQUIRE_SEPARATE_REVIEWER=true`)
+the verified author of a draft cannot confirm it; a different operator must.
+
+Confirmation records that a person reviewed the *draft*. It is not maintenance
+approval: every review carries `approves_maintenance: false`, every finding
+carries `requires_human_verification: true`, and drafts repeat fixed notices
+that they do not approve maintenance, determine airworthiness, or authorize
+return to service. The MCP server stays read-only and exposes no work-order
+tools. Work-order review assumes one application worker, as the container runs.
 
 ## Model Context Protocol
 

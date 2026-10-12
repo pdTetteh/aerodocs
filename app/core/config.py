@@ -120,6 +120,8 @@ class Settings(BaseSettings):
     generation_format_version: str = "1"
     generation_audit_format_version: str = "1"
     generation_audit_root: Path = Path("data/runtime/generation/audit")
+    work_order_root: Path = Path("data/runtime/work_orders")
+    work_order_require_separate_reviewer: bool = True
     ui_enabled: bool = True
     ui_title: str = "AeroDocs Evidence Review"
     ui_default_page_size: int = 20
@@ -279,6 +281,8 @@ class Settings(BaseSettings):
             raise ValueError("generation_format_version must not be empty")
         if not self.generation_audit_format_version.strip():
             raise ValueError("generation_audit_format_version must not be empty")
+        if str(self.work_order_root).strip() in {"", "."}:
+            raise ValueError("work_order_root must not be empty")
         if not 1 <= len(self.ui_title.strip()) <= 80:
             raise ValueError("ui_title must contain between 1 and 80 characters")
         if not 1 <= self.ui_default_page_size <= self.ui_maximum_page_size:

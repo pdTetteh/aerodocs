@@ -84,6 +84,22 @@ _POLICY: dict[tuple[str, str], tuple[RouteKind, Permission]] = {
         RouteKind.FASTAPI_API_ROUTE,
         Permission.VIEW_EVIDENCE,
     ),
+    ("POST", "/work-orders"): (
+        RouteKind.FASTAPI_API_ROUTE,
+        Permission.OPERATE_DOCUMENTS,
+    ),
+    ("GET", "/work-orders"): (
+        RouteKind.FASTAPI_API_ROUTE,
+        Permission.VIEW_EVIDENCE,
+    ),
+    ("GET", "/work-orders/{work_order_id}"): (
+        RouteKind.FASTAPI_API_ROUTE,
+        Permission.VIEW_EVIDENCE,
+    ),
+    ("POST", "/work-orders/{work_order_id}/review"): (
+        RouteKind.FASTAPI_API_ROUTE,
+        Permission.OPERATE_DOCUMENTS,
+    ),
     ("GET", "/ui/api/index-status"): (
         RouteKind.FASTAPI_API_ROUTE,
         Permission.VIEW_EVIDENCE,

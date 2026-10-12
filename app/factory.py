@@ -14,10 +14,12 @@ from app.api.errors import (
     document_error_handler,
     generation_error_handler,
     retrieval_error_handler,
+    work_order_error_handler,
 )
 from app.api.generation import create_generation_router
 from app.api.health import create_health_router
 from app.api.retrieval import create_retrieval_router
+from app.api.work_orders import create_work_orders_router
 from app.core.config import Settings
 from app.core.logging import configure_logging
 from app.core.request_limits import RequestBodyLimitMiddleware
@@ -36,6 +38,8 @@ from app.ui.api import create_ui_api_router
 from app.ui.errors import UIConfigurationError
 from app.ui.router import create_ui_router, create_ui_unavailable_router
 from app.ui.security import UiSecurityHeadersMiddleware
+from app.work_orders.errors import WorkOrderError
+from app.work_orders.service import WorkOrderService
 
 LOGGER = logging.getLogger("aerodocs")
 
@@ -167,6 +171,11 @@ def _create_app(
     application.include_router(create_documents_router(services.documents))
     application.include_router(create_retrieval_router(services.retrieval))
     application.include_router(create_generation_router(services.answers))
+    application.include_router(
+        create_work_orders_router(
+            WorkOrderService(resolved_settings, services.answers),
+        )
+    )
     if resolved_settings.ui_enabled:
         try:
             ui_router = create_ui_router(resolved_settings)
@@ -185,6 +194,7 @@ def _create_app(
     application.add_exception_handler(DocumentError, document_error_handler)
     application.add_exception_handler(RetrievalError, retrieval_error_handler)
     application.add_exception_handler(GenerationError, generation_error_handler)
+    application.add_exception_handler(WorkOrderError, work_order_error_handler)
 
     if resolved_settings.security_mode != "disabled":
         if validator is None:
