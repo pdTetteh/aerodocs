@@ -3,6 +3,14 @@
 import re
 
 NUMBERED_HEADING = re.compile(r"^\d+(?:\.\d+){0,4}[.)]?\s+\S")
+NUMBER_PREFIX = re.compile(r"^(?P<number>\d+(?:\.\d+){0,4})[.)]?\s+(?P<title>.+)$")
+SAFETY_LABEL = re.compile(r"^(?:WARNING|CAUTION|NOTE)S?\b(?:\s*[:\-–—]|\s)")
+SENTENCE_ENDINGS = (".", "!", "?", ";", ":")
+SENTENCE_BREAK = re.compile(r"[.!?]\s+\S")
+TITLE_CASE_SMALL_WORDS = frozenset(
+    {"a", "an", "and", "as", "at", "by", "for", "from", "in", "of", "on", "or"}
+    | {"per", "the", "to", "with"}
+)
 MAX_HEADING_CHARACTERS = 120
 MAX_HEADING_WORDS = 12
 WEAK_SINGLE_WORD_CANDIDATES = {
@@ -29,8 +37,11 @@ def detect_heading(line: str, *, standalone: bool) -> str | None:
     if not alphabetic:
         return None
 
+    if SAFETY_LABEL.match(candidate):
+        return None
+
     if NUMBERED_HEADING.match(candidate):
-        return candidate
+        return candidate if _is_numbered_section_title(candidate) else None
 
     if not standalone:
         return None
@@ -42,6 +53,7 @@ def detect_heading(line: str, *, standalone: bool) -> str | None:
         len(alphabetic) >= 3
         and uppercase_ratio >= 0.85
         and len(words) >= 2
+        and not candidate.endswith(".")
         and candidate.upper() not in WEAK_SINGLE_WORD_CANDIDATES
     ):
         return candidate
@@ -55,6 +67,37 @@ def detect_heading(line: str, *, standalone: bool) -> str | None:
     if all(word[0].isupper() for word in significant_words):
         return candidate
     return None
+
+
+def _is_numbered_section_title(candidate: str) -> bool:
+    """Tell a numbered section title from a numbered procedure step.
+
+    Maintenance procedures are numbered lists of imperative sentences. Those are
+    body text: treating them as headings would split a task into one chunk per
+    step and detach each step from the warning that governs it.
+    """
+    match = NUMBER_PREFIX.match(candidate)
+    if match is None:
+        return False
+    depth = match.group("number").count(".") + 1
+    title = match.group("title").strip()
+    if not title or title.endswith(SENTENCE_ENDINGS):
+        return False
+    if SENTENCE_BREAK.search(title):
+        return False
+    if depth > 1:
+        return True
+    return _is_title_case(title)
+
+
+def _is_title_case(title: str) -> bool:
+    """Accept ``Introduction``/``General Information``/``SCOPE``, not sentences."""
+    for word in title.split():
+        if not word[0].isalpha() or word.casefold() in TITLE_CASE_SMALL_WORDS:
+            continue
+        if not word[0].isupper():
+            return False
+    return True
 
 
 def find_headings(text: str) -> list[tuple[int, str]]:

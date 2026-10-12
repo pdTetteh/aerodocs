@@ -73,7 +73,9 @@ scanner ignores structural characters inside correctly escaped JSON strings.
 
 Phase 8A implements only `direct_bearer`. It has no browser session, gateway
 token, cookies, login redirect, Origin policy, Caddy trust marker, readiness
-endpoint, rate limiter, or deployment entry point. It is therefore not the
+endpoint, rate limiter, or controlled-pilot deployment design. An
+`app.secure_main` entry point and a `Dockerfile` provide a fail-closed review
+deployment only (see `docs/deployment-azure.md`). It is therefore not the
 completed controlled-pilot deployment. Browser authentication is reserved for
 the separately reviewed Phase 8B design, whose compatibility candidate is
 Caddy 2.11.4 with the official OAuth2 Proxy 7.15.3 Linux-amd64 artifact and
@@ -117,6 +119,12 @@ multipart parsing. Extraction defaults to at most 1,000 pages, 500,000
 characters per page, and 10,000,000 characters total. Limits are configurable
 with the `AERODOCS_` settings shown in `.env.example`; content is rejected, not
 truncated, when a limit is exceeded.
+
+Chunking format version 2 keeps numbered procedure steps inside their task
+section and keeps WARNING/CAUTION/NOTE paragraphs with the text they govern.
+Documents ingested under format version 1 have a different profile, so
+re-uploading them returns HTTP 409; ingest them into a fresh
+`AERODOCS_DOCUMENT_STORAGE_ROOT` and rebuild the index.
 
 Duplicate source bytes with the same processing profile return the existing
 document. A profile consists of the processing, extraction, and chunking format
@@ -593,6 +601,14 @@ npm run check
 
 `npm run check` performs JavaScript linting, formatting, JSDoc type checking,
 jsdom interaction/security tests, and packaged-static-asset verification.
+
+## Container and CI
+
+`Dockerfile` builds a CPU-only image whose default command starts the OIDC-only
+Phase 8A application and refuses to start without complete OIDC settings.
+`.github/workflows/ci.yml` runs Ruff, mypy, pytest, the UI checks and an image
+build. See `docs/deployment-azure.md` for the container, Azure and
+identity-provider notes, including what is not yet built or verified.
 
 ## Verification
 

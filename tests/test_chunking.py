@@ -111,3 +111,80 @@ def test_repeated_running_header_is_not_section_context() -> None:
 
     assert chunks
     assert all(chunk.section_heading is None for chunk in chunks)
+
+
+MAINTENANCE_PROCEDURE = (
+    "32-31-00 MAIN LANDING GEAR ACTUATOR - REMOVAL/INSTALLATION\n\n"
+    "WARNING: MAKE SURE THE LANDING GEAR GROUND LOCKS ARE INSTALLED. IF NOT, "
+    "THE LANDING GEAR CAN RETRACT AND CAUSE INJURY TO PERSONS.\n\n"
+    "1. Remove the access panel 192CB.\n"
+    "2. Disconnect the electrical connector from the actuator.\n"
+    "3. Put a container below the actuator to catch the hydraulic fluid.\n"
+    "4. Disconnect the hydraulic lines. Install blanking caps on the open lines.\n"
+    "5. Remove the bolts that attach the actuator to the structure.\n"
+    "6. Remove the actuator.\n"
+    "7. Install the new actuator and torque the attach bolts to 80 in-lb.\n"
+    "8. Connect the hydraulic lines and torque the B-nuts to 135 in-lb.\n"
+    "9. Remove the blanking caps and connect the electrical connector.\n"
+    "10. Do a leak check at 3000 psi.\n\n"
+    "CAUTION: DO NOT USE A POWER TOOL TO TORQUE THE BOLTS."
+)
+
+
+def test_numbered_procedure_stays_in_one_chunk_with_its_warnings() -> None:
+    document_id = "doc_" + "f" * 64
+    chunks = create_chunks(
+        [page(document_id, 1, MAINTENANCE_PROCEDURE)],
+        processing_profile_id="prf_test",
+        maximum_characters=2_000,
+        overlap_characters=200,
+    )
+
+    assert len(chunks) == 1
+    assert "WARNING: MAKE SURE" in chunks[0].text
+    assert "7. Install the new actuator" in chunks[0].text
+    assert "CAUTION: DO NOT USE A POWER TOOL" in chunks[0].text
+    assert chunks[0].section_heading == (
+        "32-31-00 MAIN LANDING GEAR ACTUATOR - REMOVAL/INSTALLATION"
+    )
+
+
+def test_long_procedure_keeps_every_step_under_the_task_heading() -> None:
+    document_id = "doc_" + "1" * 64
+    chunks = create_chunks(
+        [page(document_id, 1, MAINTENANCE_PROCEDURE)],
+        processing_profile_id="prf_test",
+        maximum_characters=400,
+        overlap_characters=40,
+    )
+
+    assert len(chunks) < 6
+    assert all(
+        chunk.section_heading
+        == "32-31-00 MAIN LANDING GEAR ACTUATOR - REMOVAL/INSTALLATION"
+        for chunk in chunks
+    )
+    assert all(chunk.character_count >= 40 for chunk in chunks)
+
+
+def test_chunk_never_ends_on_a_safety_paragraph() -> None:
+    document_id = "doc_" + "2" * 64
+    body = "Inspect the panel fasteners for looseness. " * 6
+    text = (
+        f"{body.strip()}\n\n"
+        "WARNING: DO NOT OPERATE THE ACTUATOR WITH THE PANEL REMOVED.\n\n"
+        "Operate the actuator through one full cycle."
+    )
+    cut = text.index("Operate the actuator") + 5
+
+    chunks = create_chunks(
+        [page(document_id, 1, text)],
+        processing_profile_id="prf_test",
+        maximum_characters=cut,
+        overlap_characters=20,
+    )
+
+    warning = "WARNING: DO NOT OPERATE"
+    last_with_warning = [chunk for chunk in chunks if warning in chunk.text][-1]
+    assert "Operate the actuator through" in last_with_warning.text
+    assert not chunks[0].text.rstrip().endswith("REMOVED.")

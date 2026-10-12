@@ -2,11 +2,14 @@
 
 import hashlib
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 
 from app.ingestion.headings import find_headings
 from app.ingestion.models import ChunkRecord, PageRecord
+
+SAFETY_PARAGRAPH = re.compile(r"\s*(?:WARNING|CAUTION|NOTE)S?\b")
 
 
 @dataclass(frozen=True)
@@ -152,8 +155,37 @@ def _choose_end(
     for separator in ("\n\n", "\n", " "):
         boundary = stream.rfind(separator, minimum_break, target_end)
         if boundary != -1:
-            return boundary + len(separator), False
-    return target_end, False
+            end = boundary + len(separator)
+            return _keep_safety_block_with_followers(
+                stream, start, end, maximum_characters
+            ), False
+    return _keep_safety_block_with_followers(
+        stream, start, target_end, maximum_characters
+    ), False
+
+
+def _keep_safety_block_with_followers(
+    stream: str,
+    start: int,
+    end: int,
+    maximum_characters: int,
+) -> int:
+    """Never end a chunk on a WARNING/CAUTION/NOTE paragraph.
+
+    A safety paragraph governs the text after it. Ending a chunk on it would let
+    retrieval return the instruction without the warning, so the cut moves back
+    to the start of that paragraph and the next chunk begins with the warning.
+    """
+    content_end = end
+    while content_end > start and stream[content_end - 1].isspace():
+        content_end -= 1
+    paragraph_start = stream.rfind("\n\n", start, content_end)
+    paragraph_start = start if paragraph_start == -1 else paragraph_start + 2
+    if paragraph_start > start + int(
+        maximum_characters * 0.25
+    ) and SAFETY_PARAGRAPH.match(stream, paragraph_start):
+        return paragraph_start
+    return end
 
 
 def _heading_at_offset(
