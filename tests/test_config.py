@@ -254,6 +254,8 @@ def test_isolated_settings_import_ignores_dotenv_but_respects_environment(
         "generation_format_version": "1",
         "generation_audit_format_version": "1",
         "generation_audit_root": "data/runtime/generation/audit",
+        "work_order_root": "data/runtime/work_orders",
+        "work_order_require_separate_reviewer": True,
         "ui_enabled": True,
         "ui_title": "AeroDocs Evidence Review",
         "ui_default_page_size": 20,

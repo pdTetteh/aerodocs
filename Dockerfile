@@ -55,6 +55,7 @@ ENV PYTHONUNBUFFERED=1 \
     AERODOCS_DOCUMENT_STORAGE_ROOT=/data/runtime \
     AERODOCS_INDEX_RUNTIME_ROOT=/data/runtime/indexes \
     AERODOCS_GENERATION_AUDIT_ROOT=/data/runtime/generation/audit \
+    AERODOCS_WORK_ORDER_ROOT=/data/runtime/work_orders \
     AERODOCS_SECURITY_MODE=oidc
 
 USER aerodocs
